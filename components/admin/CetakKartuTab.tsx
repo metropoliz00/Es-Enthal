@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Printer, RefreshCw, ChevronDown, ChevronUp, ArrowDownAZ, ArrowUpZA } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../src/services/api';
-import { getSubjects } from '../../utils/adminHelpers';
+import { getSubjects, isBereguExamType } from '../../utils/adminHelpers';
 import { useToast } from '../../context/ToastContext';
 
 const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User, students: any[], schedules: any[] }) => {
@@ -119,7 +119,7 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                 <div class="card-body">
                     <div class="info-col">
                         <table class="info-table">
-                            <tr><td width="65">Nama</td><td>: <b>${s.fullname}</b></td></tr>
+                            <tr><td width="65">${isBereguExamType(s.exam_type) ? 'Nama Regu' : 'Nama'}</td><td>: <b>${s.fullname}</b></td></tr>
                             <tr><td>Kelas</td><td>: ${s.kelas || '-'}</td></tr>
                             <tr><td>Mata Pelajaran</td><td>: <b>${subjectLabel}</b></td></tr>
                             <tr><td>Sesi</td><td>: ${s.session || '-'}</td></tr>
@@ -338,7 +338,7 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                                 <div className="flex-1">
                                     <table className="w-full text-[11px] leading-[1.25]">
                                         <tbody>
-                                            <tr><td className="w-16">Nama</td><td>: <b>{s.fullname}</b></td></tr>
+                                            <tr><td className="w-16">{isBereguExamType(s.exam_type) ? 'Nama Regu' : 'Nama'}</td><td>: <b>{s.fullname}</b></td></tr>
                                             <tr><td>Kelas</td><td>: {s.kelas || '-'}</td></tr>
                                             <tr><td>Mata Pelajaran</td><td>: <b>{s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................'}</b></td></tr>
                                             <tr><td>Sesi</td><td>: {s.session || '-'}</td></tr>

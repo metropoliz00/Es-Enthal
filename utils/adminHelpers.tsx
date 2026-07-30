@@ -91,6 +91,13 @@ export const getExamSubjectMapping = (config: Record<string, string>) => {
 
 export const SUBJECTS_DB = DEFAULT_SUBJECTS_DB; // Fallback for backward compatibility
 
+// Helper to detect whether an exam type is LCC / Beregu (Team competition)
+export const isBereguExamType = (examType?: string | null): boolean => {
+    if (!examType) return false;
+    const str = examType.trim().toUpperCase();
+    return str === 'LCC' || str.includes('CERDAS CERMAT') || str.includes('BEREGU') || str.includes('LOMBA CERDAS CERMAT');
+};
+
 // Helper to format duration string "HH:mm:ss" or "mm:ss" to text "X Jam Y Menit Z Detik"
 export const formatDurationToText = (duration: string) => {
     if (!duration || duration === '-' || duration === 'undefined') return '-';

@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint } from 'lucide-react';
+import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
+import ScoreboardLCCTab from './components/admin/ScoreboardLCCTab';
 import { api } from './src/services/api';
 import { useToast } from './context/ToastContext';
+import { isBereguExamType } from './utils/adminHelpers';
 
 type ViewState = 'login' | 'confirm' | 'exam' | 'result' | 'admin';
 
@@ -23,6 +25,13 @@ const LoadingOverlay = ({ message }: { message: string }) => (
 
 function App() {
   const { showToast } = useToast();
+
+  // Check if standalone display parameter or hash is present for Projector
+  const isStandaloneDisplay = new URLSearchParams(window.location.search).get('display') === 'scoreboard' || window.location.hash === '#/scoreboard';
+  if (isStandaloneDisplay) {
+    return <ScoreboardLCCTab forceScoreboardMode={true} />;
+  }
+
   const [view, setView] = useState<ViewState>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [examList, setExamList] = useState<Exam[]>([]);
@@ -72,8 +81,8 @@ function App() {
             const parsedUser = JSON.parse(savedUser);
             setCurrentUser(parsedUser);
             
-            // Check for new Role names: admin OR Guru
-            if (parsedUser.role === 'admin' || parsedUser.role === 'Guru') {
+            // Check for new Role names: admin OR Guru OR Juri
+            if (parsedUser.role === 'admin' || parsedUser.role === 'Guru' || parsedUser.role === 'Juri' || parsedUser.role === 'juri') {
                 setView('admin');
             } else {
                 setView('confirm');
@@ -128,8 +137,8 @@ function App() {
                 sessionStorage.setItem('cbt_user', JSON.stringify(user));
             }
 
-            // Check for new Role names: admin OR Guru
-            if (user.role === 'admin' || user.role === 'Guru') {
+            // Check for new Role names: admin OR Guru OR Juri
+            if (user.role === 'admin' || user.role === 'Guru' || user.role === 'Juri' || user.role === 'juri') {
                 setView('admin');
             } else {
                 setLoadingMessage('Menyiapkan Data Ujian...');
@@ -170,7 +179,7 @@ function App() {
       setCurrentUser(targetUser);
 
       // 3. Determine View based on Role
-      if (targetUser.role === 'admin' || targetUser.role === 'Guru') {
+      if (targetUser.role === 'admin' || targetUser.role === 'Guru' || targetUser.role === 'Juri' || targetUser.role === 'juri') {
           setView('admin');
           setLoading(false);
       } else {
@@ -536,21 +545,36 @@ function App() {
                         
                         {/* Profile Card */}
                         <div className="md:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center text-center">
+                            {isBereguExamType(currentUser?.exam_type) && (
+                                <div className="mb-3 px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs rounded-full shadow-sm flex items-center gap-1.5 animate-pulse">
+                                    <Users size={14}/> Kategori Ujian Beregu (LCC)
+                                </div>
+                            )}
                             <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-violet-500 mb-4 shadow-lg overflow-hidden relative">
                                 {currentUser?.photo_url ? (
                                     <img src={currentUser.photo_url} className="w-full h-full rounded-full object-cover border-4 border-white bg-white" alt="Profile" />
                                 ) : (
                                     <div className="w-full h-full bg-white rounded-full flex items-center justify-center text-indigo-200 border-4 border-white">
-                                        <UserIcon size={56}/>
+                                        {isBereguExamType(currentUser?.exam_type) ? <Users size={56} className="text-amber-500"/> : <UserIcon size={56}/>}
                                     </div>
                                 )}
                             </div>
-                            <h2 className="text-xl font-bold text-slate-800 leading-tight mb-1">{currentUser?.nama_lengkap}</h2>
+                            <h2 className="text-xl font-bold text-slate-800 leading-tight mb-1">
+                                {currentUser?.nama_lengkap}
+                            </h2>
                             <p className="text-slate-400 text-sm font-medium mb-4">{currentUser?.username}</p>
                             
                             <div className="w-full bg-slate-50 rounded-xl p-4 border border-slate-100 text-left space-y-3">
                                 <div>
-                                    <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Sekolah</p>
+                                    <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">
+                                        {isBereguExamType(currentUser?.exam_type) ? "Nama Regu / Tim" : "Nama Peserta"}
+                                    </p>
+                                    <p className="text-sm font-bold text-slate-700 truncate">{currentUser?.nama_lengkap}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase text-slate-400 font-bold tracking-wider">
+                                        {isBereguExamType(currentUser?.exam_type) ? "Asal Sekolah / Instansi" : "Sekolah"}
+                                    </p>
                                     <p className="text-sm font-bold text-slate-700 truncate">{currentUser?.kelas_id}</p>
                                 </div>
                                 <div>

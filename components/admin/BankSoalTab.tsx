@@ -341,7 +341,14 @@ const BankSoalTab = () => {
         }
     };
 
-    const isImage = (val: string) => val && (val.startsWith('data:image') || val.startsWith('http') || val.match(/\.(jpeg|jpg|gif|png)$/) != null);
+    const isImage = (val: string) => {
+        if (!val) return false;
+        const trimmed = val.trim();
+        if (trimmed.startsWith('data:image/')) return true;
+        if (trimmed.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)(\?.*)?$/i) != null) return true;
+        if ((trimmed.startsWith('http://') || trimmed.startsWith('https://')) && !trimmed.includes(' ') && !trimmed.includes('\n')) return true;
+        return false;
+    };
 
     const renderOptionInput = (label: string, field: 'opsi_a' | 'opsi_b' | 'opsi_c' | 'opsi_d') => {
         if (!currentQ) return null;
@@ -501,15 +508,24 @@ const BankSoalTab = () => {
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 pr-4">
                                             <div className="text-slate-800 font-medium text-sm leading-relaxed mb-2">{q.text_soal}</div>
-                                            {isImage(q.gambar) && (
-                                                <div className="mt-2 mb-3">
-                                                    <img 
-                                                        src={q.gambar} 
-                                                        alt="Soal" 
-                                                        className="h-24 w-auto object-contain rounded-lg border border-slate-200 bg-slate-50 shadow-sm"
-                                                        loading="lazy" 
-                                                    />
-                                                </div>
+                                            {q.gambar && (
+                                                isImage(q.gambar) ? (
+                                                    <div className="mt-2 mb-3">
+                                                        <img 
+                                                            src={q.gambar} 
+                                                            alt="Soal" 
+                                                            className="h-24 w-auto object-contain rounded-lg border border-slate-200 bg-slate-50 shadow-sm"
+                                                            loading="lazy" 
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-2 mb-3 p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-slate-700 text-xs font-normal leading-relaxed">
+                                                        <span className="font-bold text-indigo-600 block text-[10px] uppercase mb-1 flex items-center gap-1">
+                                                            <Type size={12}/> Deskripsi / Wacana Soal:
+                                                        </span>
+                                                        <div className="whitespace-pre-line">{q.gambar}</div>
+                                                    </div>
+                                                )
                                             )}
                                         </div>
                                         <div className="flex gap-2 shrink-0">
@@ -562,7 +578,13 @@ const BankSoalTab = () => {
                                         {q.tp_id && <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1"><Target size={10}/> {q.tp_id}</span>}
                                         {q.jenis_ujian && <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">{q.jenis_ujian}</span>}
                                         {q.kode_paket && <span className="text-[10px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded border border-pink-100">Paket: {q.kode_paket}</span>}
-                                        {q.gambar && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><ImageIcon size={10}/> Gambar</span>}
+                                        {q.gambar && (
+                                            isImage(q.gambar) ? (
+                                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><ImageIcon size={10}/> Gambar</span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1"><Type size={10}/> Deskripsi Soal</span>
+                                            )
+                                        )}
                                         {q.caption && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 truncate max-w-[150px]">Ket: {q.caption}</span>}
                                     </div>
                                 </div>
@@ -687,22 +709,35 @@ const BankSoalTab = () => {
                                         <textarea required className="flex-1 w-full bg-transparent outline-none resize-none font-medium text-slate-700 leading-relaxed text-sm" value={currentQ.text_soal} onChange={e => setCurrentQ({...currentQ, text_soal: e.target.value})} placeholder="Tulis pertanyaan disini..."></textarea>
                                     </div>
 
-                                    {/* Image Input */}
-                                    <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                                                {isImage(currentQ.gambar) ? <img src={currentQ.gambar} className="w-full h-full object-cover"/> : <ImageIcon size={18} className="text-slate-400"/>}
+                                    {/* Image / Description Input */}
+                                    <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col gap-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 mt-1">
+                                                {isImage(currentQ.gambar) ? <img src={currentQ.gambar} className="w-full h-full object-cover"/> : currentQ.gambar ? <Type size={18} className="text-indigo-600"/> : <ImageIcon size={18} className="text-slate-400"/>}
                                             </div>
                                             <div className="flex-1">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase block">Gambar Soal</label>
-                                                <input type="text" className="w-full bg-transparent text-xs font-medium outline-none text-slate-600 placeholder-slate-300" value={currentQ.gambar} onChange={e => setCurrentQ({...currentQ, gambar: e.target.value})} placeholder="Link URL..." />
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase">Gambar / Deskripsi Soal (Link URL / Teks Wacana)</label>
+                                                    {currentQ.gambar && (
+                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${isImage(currentQ.gambar) ? 'bg-slate-100 text-slate-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                                                            {isImage(currentQ.gambar) ? 'Gambar (URL)' : 'Teks Deskripsi'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <textarea 
+                                                    rows={2}
+                                                    className="w-full bg-slate-50 p-2.5 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-400 border border-transparent focus:border-indigo-200 focus:bg-white transition-all resize-y" 
+                                                    value={currentQ.gambar} 
+                                                    onChange={e => setCurrentQ({...currentQ, gambar: e.target.value})} 
+                                                    placeholder="Isi dengan Link URL Gambar atau Ketik Teks Deskripsi/Wacana Soal..." 
+                                                />
                                             </div>
-                                            <label className="p-2 bg-indigo-50 text-indigo-600 rounded-lg cursor-pointer hover:bg-indigo-100 transition"><Upload size={16}/><input type="file" className="hidden" onChange={(e) => handleImageUpload(e, 'gambar')} /></label>
+                                            <label className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg cursor-pointer hover:bg-indigo-100 transition mt-1 shrink-0" title="Upload Gambar"><Upload size={16}/><input type="file" className="hidden" onChange={(e) => handleImageUpload(e, 'gambar')} /></label>
                                         </div>
                                         {/* Added Caption Input */}
                                         <div className="border-t border-slate-100 pt-2">
-                                            <label className="text-[9px] font-bold text-slate-400 uppercase block flex items-center gap-1"><Type size={10}/> Keterangan Gambar (Muncul di bawah gambar)</label>
-                                            <input type="text" className="w-full bg-slate-50 p-2 mt-1 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-300 border border-transparent focus:border-indigo-200 focus:bg-white transition-all" value={currentQ.caption || ''} onChange={e => setCurrentQ({...currentQ, caption: e.target.value})} placeholder="Contoh: Perhatikan gambar di atas..." />
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase block flex items-center gap-1"><Type size={10}/> Keterangan (Catatan Tambahan / Caption)</label>
+                                            <input type="text" className="w-full bg-slate-50 p-2 mt-1 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-300 border border-transparent focus:border-indigo-200 focus:bg-white transition-all" value={currentQ.caption || ''} onChange={e => setCurrentQ({...currentQ, caption: e.target.value})} placeholder="Contoh: Perhatikan wacana / gambar di atas..." />
                                         </div>
                                     </div>
                                 </div>

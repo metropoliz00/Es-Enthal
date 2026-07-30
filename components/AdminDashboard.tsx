@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Home, LogOut, Menu, Monitor, Group, Clock, Printer, List, Calendar, Key, FileQuestion, LayoutDashboard, BarChart3, Award, RefreshCw, X, CreditCard, Bell, CheckCircle2, ChevronRight, ChevronLeft, Loader2, Search, Target, UserCog, ClipboardList, User as UserIcon, ChevronDown, ChevronUp, Settings } from 'lucide-react';
+import { Home, LogOut, Menu, Monitor, Group, Clock, Printer, List, Calendar, Key, FileQuestion, LayoutDashboard, BarChart3, Award, RefreshCw, X, CreditCard, Bell, CheckCircle2, ChevronRight, ChevronLeft, Loader2, Search, Target, UserCog, ClipboardList, User as UserIcon, ChevronDown, ChevronUp, Settings, Trophy } from 'lucide-react';
 import { api } from '../src/services/api';
 import { User } from '../types';
 import OverviewTab from './admin/OverviewTab';
@@ -18,6 +18,7 @@ import RilisTokenTab from './admin/RilisTokenTab';
 import BankSoalTab from './admin/BankSoalTab';
 import TujuanPembelajaranTab from './admin/TujuanPembelajaranTab';
 import KonfigurasiTab from './admin/KonfigurasiTab';
+import ScoreboardLCCTab from './admin/ScoreboardLCCTab';
 
 interface AdminDashboardProps {
     user: User;
@@ -25,7 +26,7 @@ interface AdminDashboardProps {
     onSwitchUser: (user: User) => void; // New Prop for User Switching
 }
 
-type TabType = 'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'data_admin' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi' | 'atur_gelombang' | 'cetak_absensi' | 'cetak_kartu' | 'tujuan_pembelajaran' | 'konfigurasi';
+type TabType = 'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'data_admin' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi' | 'atur_gelombang' | 'cetak_absensi' | 'cetak_kartu' | 'tujuan_pembelajaran' | 'konfigurasi' | 'scoreboard_lcc';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitchUser }) => {
   const [activeTab, setActiveTab] = useState<TabType>(() => (localStorage.getItem('cbt_admin_tab') as TabType) || 'overview');
@@ -43,6 +44,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
   // Collapsible Menu State
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
       'ujian': true,
+      'lomba': true,
       'user': true,
       'data': true,
       'cetak': true
@@ -58,6 +60,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
   useEffect(() => {
       const tabNames: Record<TabType, string> = {
           'overview': 'Dashboard',
+          'scoreboard_lcc': 'Smart Scoreboard LCC',
           'status_tes': 'Live Status',
           'rilis_token': 'Token & Timer',
           'kelompok_tes': 'Set Ujian Aktif',
@@ -176,9 +179,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                     )}
                  </div>
              )}
+
+             {/* GROUP: LOMBA & CERDAS CERMAT */}
+             <GroupHeader id="lomba" label="Lomba & Cerdas Cermat" />
+             {(openGroups['lomba'] || isCollapsed) && (
+                 <div className={!isCollapsed ? "pl-2 border-l border-slate-200 ml-3 space-y-1" : "space-y-1"}>
+                    <button onClick={() => handleTabChange('scoreboard_lcc')} className={navButtonClass('scoreboard_lcc')} title="Scoreboard LCC">
+                        <Trophy size={22} className={isCollapsed ? "" : "shrink-0 mr-3 text-amber-500"}/> {!isCollapsed && <span className="font-bold text-amber-600">Scoreboard LCC</span>}
+                    </button>
+                 </div>
+             )}
              
              {/* GROUP: MANAJEMEN USER */}
-             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
                  <>
                     <GroupHeader id="user" label="Manajemen User" />
                     {(openGroups['user'] || isCollapsed) && (
@@ -197,7 +210,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
              )}
 
              {/* GROUP: DATA & LAPORAN */}
-             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
                  <>
                     <GroupHeader id="data" label="Data & Laporan" />
                     {(openGroups['data'] || isCollapsed) && (
@@ -213,7 +226,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                                 </>
                             )}
                             
-                            {/* Rekap & Analisis now available for Guru */}
+                            {/* Rekap & Analisis now available for Guru and Juri */}
                             <button onClick={() => handleTabChange('rekap')} className={navButtonClass('rekap')} title="Rekap Nilai">
                                 <LayoutDashboard size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Rekap Nilai</span>}
                             </button>
@@ -315,20 +328,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                     {activeTab === 'bank_soal' && currentUserState.role === 'admin' && <BankSoalTab />}
                     {activeTab === 'tujuan_pembelajaran' && currentUserState.role === 'admin' && <TujuanPembelajaranTab />}
                     
-                    {/* REKAP & ANALISIS for both Admin and Guru */}
-                    {activeTab === 'rekap' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+                    {/* REKAP & ANALISIS for Admin, Guru, and Juri */}
+                    {activeTab === 'rekap' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
                         <RekapTab students={dashboardData.allUsers} currentUser={currentUserState} />
                     )}
-                    {activeTab === 'analisis' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+                    {activeTab === 'analisis' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
                         <AnalisisTab currentUser={currentUserState} students={dashboardData.allUsers} />
                     )}
                     
                     {activeTab === 'ranking' && currentUserState.role === 'admin' && <RankingTab students={dashboardData.allUsers} />}
                     
-                    {/* Allow Konfigurasi for both Admin and Guru */}
-                    {activeTab === 'konfigurasi' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+                    {/* Allow Konfigurasi for Admin, Guru, and Juri */}
+                    {activeTab === 'konfigurasi' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
                         <KonfigurasiTab currentUser={currentUserState} />
                     )}
+
+                    {/* SMART SCOREBOARD LCC */}
+                    {activeTab === 'scoreboard_lcc' && <ScoreboardLCCTab currentUser={currentUserState} />}
                 </>
             )}
          </div>

@@ -1,6 +1,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Check, ChevronLeft, ChevronRight, LayoutGrid, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move, HelpCircle, User } from 'lucide-react';
+import { Clock, Check, ChevronLeft, ChevronRight, LayoutGrid, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move, HelpCircle, User, Type, Users } from 'lucide-react';
+import { isBereguExamType } from '../utils/adminHelpers';
+
+const isImageUrl = (val: string | undefined | null): boolean => {
+    if (!val) return false;
+    const trimmed = val.trim();
+    if (trimmed.startsWith('data:image/')) return true;
+    if (trimmed.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)(\?.*)?$/i) != null) return true;
+    if ((trimmed.startsWith('http://') || trimmed.startsWith('https://')) && !trimmed.includes(' ') && !trimmed.includes('\n')) {
+        return true;
+    }
+    return false;
+};
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
 import { api } from '../src/services/api';
 import { useToast } from '../context/ToastContext';
@@ -272,8 +284,13 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               
               {/* USER IDENTITY */}
               <div className="hidden md:flex flex-col items-end border-r border-slate-200 pr-4 mr-1">
+                  {isBereguExamType(examType) && (
+                      <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1 mb-0.5">
+                          <Users size={10}/> REGU LCC
+                      </span>
+                  )}
                   <p className="font-bold text-slate-800 text-sm">{userFullName}</p>
-                  <p className="text-[10px] text-slate-500 font-mono">{username}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">{isBereguExamType(examType) ? `Regu: ${username}` : username}</p>
               </div>
 
               {/* SUBJECT & EXAM TYPE (Info Soal) */}
@@ -311,26 +328,44 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                            {/* SPLIT LAYOUT CONTAINER */}
                            <div className={`flex flex-col lg:flex-row gap-8 h-full ${fontSize==='lg'?'text-2xl':fontSize==='sm'?'text-base':'text-lg'}`}>
                                 
-                                {/* LEFT SIDE: IMAGE (If Exists) */}
+                                {/* LEFT SIDE: IMAGE OR TEXT DESCRIPTION (If Exists) */}
                                 {currentQ.gambar && (
-                                    <div className="lg:w-1/3 shrink-0">
-                                        <div className="rounded-xl border border-slate-200 p-2 bg-slate-50 relative group shadow-sm sticky top-0">
-                                            <img src={currentQ.gambar} className="w-full h-auto max-h-[500px] object-contain rounded-lg cursor-zoom-in bg-white" onClick={() => setZoomedImage(currentQ.gambar!)} />
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none">
-                                                <span className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 backdrop-blur-sm"><Maximize size={12}/> Perbesar Gambar</span>
+                                    isImageUrl(currentQ.gambar) ? (
+                                        <div className="lg:w-1/3 shrink-0">
+                                            <div className="rounded-xl border border-slate-200 p-2 bg-slate-50 relative group shadow-sm sticky top-0">
+                                                <img src={currentQ.gambar} className="w-full h-auto max-h-[500px] object-contain rounded-lg cursor-zoom-in bg-white" onClick={() => setZoomedImage(currentQ.gambar!)} />
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none">
+                                                    <span className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 backdrop-blur-sm"><Maximize size={12}/> Perbesar Gambar</span>
+                                                </div>
+                                            </div>
+                                            {/* Added Caption from Database */}
+                                            {currentQ.caption ? (
+                                                <p className="text-center text-blue-600 text-sm font-bold mt-3 leading-relaxed animate-in fade-in slide-in-from-top-2">
+                                                    {currentQ.caption}
+                                                </p>
+                                            ) : (
+                                                <p className="text-center text-slate-400 text-xs font-medium mt-2 italic">
+                                                    Klik gambar untuk memperbesar
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="lg:w-1/3 shrink-0">
+                                            <div className="rounded-2xl border border-indigo-200 p-5 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 shadow-sm sticky top-0 space-y-3">
+                                                <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs uppercase tracking-wider border-b border-indigo-100/80 pb-2">
+                                                    <Type size={14} className="text-indigo-600"/> Deskripsi / Wacana Soal
+                                                </div>
+                                                <div className="text-slate-800 text-sm md:text-base leading-relaxed font-normal whitespace-pre-line">
+                                                    {currentQ.gambar}
+                                                </div>
+                                                {currentQ.caption && (
+                                                    <p className="text-xs text-indigo-600 font-medium italic pt-2 border-t border-indigo-100">
+                                                        {currentQ.caption}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
-                                        {/* Added Caption from Database */}
-                                        {currentQ.caption ? (
-                                            <p className="text-center text-blue-600 text-sm font-bold mt-3 leading-relaxed animate-in fade-in slide-in-from-top-2">
-                                                {currentQ.caption}
-                                            </p>
-                                        ) : (
-                                            <p className="text-center text-slate-400 text-xs font-medium mt-2 italic">
-                                                Klik gambar untuk memperbesar
-                                            </p>
-                                        )}
-                                    </div>
+                                    )
                                 )}
 
                                 {/* RIGHT SIDE: CONTENT & OPTIONS */}

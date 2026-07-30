@@ -580,5 +580,100 @@ export const api = {
   getSurveyRecap: async (surveyType: string): Promise<any[]> => {
       const { data, error } = await supabase.from('student_exams').select('*, answers(*)').eq('exam_id', surveyType);
       return error ? [] : data;
+  },
+
+  // --- LCC DATABASE METHODS ---
+  getLccTeams: async (): Promise<any[]> => {
+      const { data, error } = await supabase.from('lcc_teams').select('*');
+      return error ? [] : (data || []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          school: t.school,
+          score: t.score,
+          color: t.color,
+          logo: t.logo,
+          correctCount: t.correct_count ?? t.correctCount ?? 0,
+          wrongCount: t.wrong_count ?? t.wrongCount ?? 0,
+          members: t.members || []
+      }));
+  },
+  saveLccTeams: async (teams: any[]): Promise<{success: boolean}> => {
+      if (!teams || teams.length === 0) {
+          await supabase.from('lcc_teams').delete().neq('id', '');
+          return { success: true };
+      }
+      const { error } = await supabase.from('lcc_teams').upsert(teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          school: t.school,
+          score: t.score,
+          color: t.color,
+          logo: t.logo,
+          correct_count: t.correctCount ?? 0,
+          wrong_count: t.wrongCount ?? 0,
+          members: t.members || []
+      })));
+      return { success: !error };
+  },
+  getLccQuestions: async (): Promise<any[]> => {
+      const { data, error } = await supabase.from('lcc_questions').select('*');
+      return error ? [] : (data || []).map((q: any) => ({
+          id: q.id,
+          nomorSoal: q.nomor_soal,
+          babak: q.babak,
+          soal: q.soal,
+          referensiJawaban: q.referensi_jawaban,
+          poin: q.poin,
+          kategori: q.kategori
+      }));
+  },
+  saveLccQuestion: async (q: any): Promise<{success: boolean}> => {
+      const { error } = await supabase.from('lcc_questions').upsert({
+          id: q.id,
+          nomor_soal: q.nomorSoal,
+          babak: q.babak,
+          soal: q.soal,
+          referensi_jawaban: q.referensiJawaban,
+          poin: q.poin,
+          kategori: q.kategori
+      });
+      return { success: !error };
+  },
+  deleteLccQuestion: async (id: string): Promise<{success: boolean}> => {
+      const { error } = await supabase.from('lcc_questions').delete().eq('id', id);
+      return { success: !error };
+  },
+  getLccConfig: async (): Promise<any> => {
+      const { data, error } = await supabase.from('lcc_config').select('config').eq('key', 'main').maybeSingle();
+      return error || !data ? null : data.config;
+  },
+  saveLccConfig: async (config: any): Promise<{success: boolean}> => {
+      const { error } = await supabase.from('lcc_config').upsert({ key: 'main', config });
+      return { success: !error };
+  },
+  getLccHistory: async (): Promise<any[]> => {
+      const { data, error } = await supabase.from('lcc_history').select('*');
+      return error ? [] : (data || []).map((h: any) => ({
+          id: h.id,
+          timestamp: h.timestamp,
+          teamId: h.team_id,
+          teamName: h.team_name,
+          points: h.points,
+          description: h.description,
+          delta: h.delta
+      }));
+  },
+  saveLccHistory: async (history: any[]): Promise<{success: boolean}> => {
+      if (!history || history.length === 0) return { success: true };
+      const latest = history[history.length - 1];
+      const { error } = await supabase.from('lcc_history').insert({
+          timestamp: latest.timestamp,
+          team_id: latest.teamId,
+          team_name: latest.teamName,
+          points: latest.points,
+          description: latest.description,
+          delta: latest.delta
+      });
+      return { success: !error };
   }
 };

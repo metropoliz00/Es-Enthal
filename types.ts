@@ -1,6 +1,6 @@
 
 // 1. Tabel Users
-export type UserRole = 'admin' | 'Guru' | 'siswa';
+export type UserRole = 'admin' | 'Guru' | 'siswa' | 'Juri' | 'juri';
 
 export interface User {
   id: string;

@@ -5,7 +5,7 @@ import { Users, FileText, Download, Upload, Loader2, Plus, Search, Edit, Trash2,
 import { api } from '../../src/services/api';
 import { User } from '../../types';
 import * as XLSX from 'xlsx';
-import { exportToExcel, getExamTypes } from '../../utils/adminHelpers';
+import { exportToExcel, getExamTypes, isBereguExamType } from '../../utils/adminHelpers';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface DaftarPesertaTabProps {
@@ -59,12 +59,12 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
         try { 
             const data = await api.getUsers(); 
             // Filter by mode immediately upon load
-            const filteredData = data.filter(u => mode === 'siswa' ? u.role === 'siswa' : (u.role === 'admin' || u.role === 'Guru'));
+            const filteredData = data.filter(u => mode === 'siswa' ? u.role === 'siswa' : (u.role === 'admin' || u.role === 'Guru' || u.role === 'Juri' || u.role === 'juri'));
             
             // Sort by created_at to ensure consistent numbering
             filteredData.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
-            let counters: any = { admin: 0, Guru: 0, siswa: {} };
+            let counters: any = { admin: 0, Guru: 0, Juri: 0, siswa: {} };
 
             // Map data securely. API returns 'fullname', 'school', 'gender' directly from DB.
             const mappedData = filteredData.map(u => {
@@ -75,6 +75,9 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                 } else if (u.role === 'Guru') {
                     counters.Guru++;
                     display_id = `GUR-${String(counters.Guru).padStart(2, '0')}`;
+                } else if (u.role === 'Juri' || u.role === 'juri') {
+                    counters.Juri++;
+                    display_id = `JUR-${String(counters.Juri).padStart(2, '0')}`;
                 } else {
                     const et = u.exam_type || 'NA';
                     if (!counters.siswa[et]) counters.siswa[et] = 0;
@@ -458,7 +461,14 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                              </td>
                              <td className="p-3 border-r border-slate-100 font-mono text-indigo-600 font-bold">{u.username}</td>
                              <td className="p-3 border-r border-slate-100 font-mono text-slate-400">{u.password || '***'}</td>
-                             <td className="p-3 border-r border-slate-100 font-bold text-slate-700">{u.fullname}</td>
+                             <td className="p-3 border-r border-slate-100 font-bold text-slate-700">
+                                 {u.fullname}
+                                 {isBereguExamType(u.exam_type) && (
+                                     <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                         <Users size={10}/> Regu LCC
+                                     </span>
+                                 )}
+                             </td>
                              <td className="p-3 border-r border-slate-100 text-center font-bold text-slate-500">{u.gender || 'L'}</td>
                              <td className="p-3 border-r border-slate-100">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase border ${u.role === 'admin' ? 'bg-purple-50 text-purple-600 border-purple-100' : u.role === 'Guru' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
@@ -526,12 +536,22 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                     <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Username</label><input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} /></div>
                                     <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password</label><input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
                                 </div>
-                                <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label><input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} /></div>
+                                <div><div className="flex justify-between items-center mb-1">
+                                         <label className="block text-[10px] font-bold text-slate-400 uppercase">
+                                             {isBereguExamType(formData.exam_type) ? 'Nama Regu / Tim' : 'Nama Lengkap'}
+                                         </label>
+                                         {isBereguExamType(formData.exam_type) && (
+                                             <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                                                 Format Beregu (LCC)
+                                             </span>
+                                         )}
+                                     </div>
+                                     <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder={isBereguExamType(formData.exam_type) ? "Contoh: Regu A - SDN Remen 2" : "Nama Lengkap"} /></div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>
                                         <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} disabled={currentUser.role !== 'admin' || mode === 'siswa'}>
-                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="admin">Admin Pusat</option></>}
+                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="admin">Admin Pusat</option></>}
                                         </select>
                                     </div>
                                     <div>
