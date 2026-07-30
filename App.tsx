@@ -337,7 +337,8 @@ function App() {
 
   const schoolName = appConfig['SCHOOL_NAME'] || "UPT SD NEGERI REMEN 2";
   const schoolTagline = appConfig['SCHOOL_TAGLINE'] || "Religius - Aktif - Maju - Aman - Humanis";
-  const footerCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
+  const rawFooterCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
+  const footerCopyright = rawFooterCopyright.includes("UPT SD NEGERI REMEN 2") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;
   const footerInfo = appConfig['FOOTER_INFO'] || "Secure Browser";
   const schoolLogo = appConfig['LOGO_SEKOLAH'];
 

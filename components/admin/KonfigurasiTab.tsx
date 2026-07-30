@@ -93,10 +93,13 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                 const types = getExamTypes(globalConfig, false);
                 const subjectsRecord = mapping.reduce((acc: any, curr: any) => { acc[curr.examTypeId] = curr.subjectIds; return acc; }, {});
 
+                const rawFooterCopyright = mergedConfig['FOOTER_COPYRIGHT'] || '© 2026 | Dev. MeyGa';
+                const footerCopyrightVal = rawFooterCopyright.includes('UPT SD NEGERI REMEN 2') ? '© 2026 | Dev. MeyGa' : rawFooterCopyright;
+
                 setFormData({
                     schoolName: mergedConfig['SCHOOL_NAME'] || '',
                     schoolTagline: mergedConfig['SCHOOL_TAGLINE'] || 'Religius - Aktif - Maju - Aman - Humanis',
-                    footerCopyright: mergedConfig['FOOTER_COPYRIGHT'] || '© 2026 | Dev. MeyGa',
+                    footerCopyright: footerCopyrightVal,
                     footerInfo: mergedConfig['FOOTER_INFO'] || 'Secure Browser',
                     principalName: mergedConfig['PRINCIPAL_NAME'] || '',
                     principalNip: mergedConfig['PRINCIPAL_NIP'] || '',
