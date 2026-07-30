@@ -337,7 +337,7 @@ function App() {
 
   const schoolName = appConfig['SCHOOL_NAME'] || "UPT SD NEGERI REMEN 2";
   const schoolTagline = appConfig['SCHOOL_TAGLINE'] || "Religius - Aktif - Maju - Aman - Humanis";
-  const footerCopyright = appConfig['FOOTER_COPYRIGHT'] || `© 2026 ${schoolName}`;
+  const footerCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
   const footerInfo = appConfig['FOOTER_INFO'] || "Secure Browser";
   const schoolLogo = appConfig['LOGO_SEKOLAH'];
 
@@ -710,7 +710,7 @@ function App() {
                     <LogOut size={18} /> KELUAR
                 </button>
             </div>
-            <p className="mt-8 text-slate-400 text-xs font-bold tracking-widest uppercase">MAS Digta © 2026</p>
+            <p className="mt-8 text-slate-400 text-xs font-bold tracking-widest uppercase">{footerCopyright}</p>
         </div>
       );
   }

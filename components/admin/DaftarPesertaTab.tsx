@@ -440,7 +440,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                              <th className="p-4 border-r border-slate-200 min-w-[200px]">Nama Lengkap</th>
                              <th className="p-4 border-r border-slate-200 text-center">L/P</th>
                              <th className="p-4 border-r border-slate-200">Role</th>
-                             <th className="p-4 border-r border-slate-200 text-center">Kelas</th> {/* Unified Header */}
+                             <th className="p-4 border-r border-slate-200 text-center">Kelas</th>
                              <th className="p-4 border-r border-slate-200">Sekolah</th>
                              <th className="p-4 border-r border-slate-200">Kecamatan</th>
                              <th className="p-4 border-r border-slate-200 min-w-[150px]">Jenis Ujian</th>

@@ -96,7 +96,7 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                 setFormData({
                     schoolName: mergedConfig['SCHOOL_NAME'] || '',
                     schoolTagline: mergedConfig['SCHOOL_TAGLINE'] || 'Religius - Aktif - Maju - Aman - Humanis',
-                    footerCopyright: mergedConfig['FOOTER_COPYRIGHT'] || `© 2026 ${mergedConfig['SCHOOL_NAME'] || 'UPT SD NEGERI REMEN 2'}`,
+                    footerCopyright: mergedConfig['FOOTER_COPYRIGHT'] || '© 2026 | Dev. MeyGa',
                     footerInfo: mergedConfig['FOOTER_INFO'] || 'Secure Browser',
                     principalName: mergedConfig['PRINCIPAL_NAME'] || '',
                     principalNip: mergedConfig['PRINCIPAL_NIP'] || '',
@@ -385,7 +385,7 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                                     <input 
                                         type="text" 
                                         className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all ${isGuru ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'}`} 
-                                        placeholder="Contoh: © 2026 UPT SD NEGERI REMEN 2"
+                                        placeholder="Contoh: © 2026 | Dev. MeyGa"
                                         value={formData.footerCopyright}
                                         onChange={e => setFormData({...formData, footerCopyright: e.target.value})}
                                         readOnly={isGuru}
