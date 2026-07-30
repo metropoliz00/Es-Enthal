@@ -652,7 +652,7 @@ export const api = {
       return { success: !error };
   },
   getLccHistory: async (): Promise<any[]> => {
-      const { data, error } = await supabase.from('lcc_history').select('*');
+      const { data, error } = await supabase.from('lcc_history').select('*').order('timestamp', { ascending: false });
       return error ? [] : (data || []).map((h: any) => ({
           id: h.id,
           timestamp: h.timestamp,
@@ -664,16 +664,26 @@ export const api = {
       }));
   },
   saveLccHistory: async (history: any[]): Promise<{success: boolean}> => {
-      if (!history || history.length === 0) return { success: true };
-      const latest = history[history.length - 1];
-      const { error } = await supabase.from('lcc_history').insert({
-          timestamp: latest.timestamp,
-          team_id: latest.teamId,
-          team_name: latest.teamName,
-          points: latest.points,
-          description: latest.description,
-          delta: latest.delta
-      });
-      return { success: !error };
+      try {
+          // Clear existing history rows first to overwrite with current list
+          await supabase.from('lcc_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          
+          if (!history || history.length === 0) return { success: true };
+
+          const rows = history.map(h => ({
+              timestamp: h.timestamp,
+              team_id: h.teamId,
+              team_name: h.teamName,
+              points: h.points || h.newScore || 0,
+              description: h.description || h.reason || '',
+              delta: h.delta
+          }));
+
+          const { error } = await supabase.from('lcc_history').insert(rows);
+          return { success: !error };
+      } catch (err) {
+          console.error("Error saving LCC history:", err);
+          return { success: false };
+      }
   }
 };

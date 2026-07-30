@@ -263,7 +263,14 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 const dbTeams = await api.getLccTeams();
                 setTeams(dbTeams || []);
 
-                const dbQuestions = await api.getLccQuestions();
+                let dbQuestions = await api.getLccQuestions();
+                if (!dbQuestions || dbQuestions.length === 0) {
+                    // Seed/initialize with DEFAULT_QUESTIONS in database!
+                    for (const q of DEFAULT_QUESTIONS) {
+                        await api.saveLccQuestion(q);
+                    }
+                    dbQuestions = await api.getLccQuestions();
+                }
                 setQuestions(dbQuestions || []);
 
                 const dbHistory = await api.getLccHistory();
@@ -274,22 +281,46 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         })();
     }, []);
 
-    // Sync config changes to Supabase
+    // Sync config changes to Supabase and localStorage
     useEffect(() => {
         api.saveLccConfig(config);
+        localStorage.setItem('lcc_scoreboard_config', JSON.stringify(config));
         syncStateToOtherTabs();
     }, [config]);
 
-    // Sync teams changes to Supabase
+    // Sync teams changes to Supabase and localStorage
     useEffect(() => {
         api.saveLccTeams(teams);
+        localStorage.setItem('lcc_scoreboard_teams', JSON.stringify(teams));
         syncStateToOtherTabs();
     }, [teams]);
 
-    // Silent background auto-refresh every 5 seconds & storage sync for multi-juri real-time consistency
+    // Sync questions changes to localStorage and other tabs
     useEffect(() => {
-        const silentCheckAndRefresh = () => {
+        if (questions && questions.length > 0) {
+            localStorage.setItem('lcc_questions', JSON.stringify(questions));
+        } else {
+            localStorage.removeItem('lcc_questions');
+        }
+        syncStateToOtherTabs();
+    }, [questions]);
+
+    // Sync history changes to Supabase and localStorage
+    useEffect(() => {
+        if (history && history.length > 0) {
+            localStorage.setItem('lcc_scoreboard_history', JSON.stringify(history));
+        } else {
+            localStorage.removeItem('lcc_scoreboard_history');
+        }
+        api.saveLccHistory(history);
+        syncStateToOtherTabs();
+    }, [history]);
+
+    // Silent background auto-refresh every 5 seconds & storage sync for multi-juri and projector real-time consistency
+    useEffect(() => {
+        const silentCheckAndRefresh = async () => {
             try {
+                // 1. Sync via localStorage for instant local window/tab consistency
                 const savedConfigStr = localStorage.getItem('lcc_scoreboard_config');
                 const savedTeamsStr = localStorage.getItem('lcc_scoreboard_teams');
                 const savedHistoryStr = localStorage.getItem('lcc_scoreboard_history');
@@ -311,8 +342,54 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     const parsedQuestions = JSON.parse(savedQuestionsStr);
                     setQuestions(prev => JSON.stringify(prev) !== savedQuestionsStr ? parsedQuestions : prev);
                 }
+
+                // 2. Cross-device Database Synchronization (Supabase)
+                // Fetch the latest LCC state to synchronize other active screens/judges
+                const dbConfig = await api.getLccConfig();
+                if (dbConfig) {
+                    const dbConfigStr = JSON.stringify(dbConfig);
+                    setConfig(prev => {
+                        if (JSON.stringify(prev) !== dbConfigStr) {
+                            return { ...prev, ...dbConfig };
+                        }
+                        return prev;
+                    });
+                }
+
+                const dbTeams = await api.getLccTeams();
+                if (dbTeams && dbTeams.length > 0) {
+                    const dbTeamsStr = JSON.stringify(dbTeams);
+                    setTeams(prev => {
+                        if (JSON.stringify(prev) !== dbTeamsStr) {
+                            return dbTeams;
+                        }
+                        return prev;
+                    });
+                }
+
+                const dbHistory = await api.getLccHistory();
+                if (dbHistory) {
+                    const dbHistoryStr = JSON.stringify(dbHistory);
+                    setHistory(prev => {
+                        if (JSON.stringify(prev) !== dbHistoryStr) {
+                            return dbHistory;
+                        }
+                        return prev;
+                    });
+                }
+
+                const dbQuestions = await api.getLccQuestions();
+                if (dbQuestions && dbQuestions.length > 0) {
+                    const dbQuestionsStr = JSON.stringify(dbQuestions);
+                    setQuestions(prev => {
+                        if (JSON.stringify(prev) !== dbQuestionsStr) {
+                            return dbQuestions;
+                        }
+                        return prev;
+                    });
+                }
             } catch (e) {
-                console.error("Silent background sync error", e);
+                console.error("Silent background database sync error", e);
             }
         };
 
@@ -453,7 +530,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         setCustomScoreInputs(prev => ({ ...prev, [teamId]: '' }));
     };
 
-    // SYNC TEAMS & SCORES FROM CBT EXAM RESULTS (3 students per school team)
+    // SYNC TEAMS & SCORES FROM CBT EXAM RESULTS (Supports explicit Regu accounts or grouping 3 students per school)
     const syncTeamsFromCBT = async () => {
         try {
             showToast('Mengambil data peserta & hasil ujian CBT...', 'info');
@@ -464,7 +541,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
             const students = usersData.filter(u => u.role?.toLowerCase() === 'siswa');
             if (students.length === 0) {
-                showToast('Tidak ada data siswa ditemukan!', 'warning');
+                showToast('Tidak ada data peserta ditemukan!', 'warning');
                 return;
             }
 
@@ -479,51 +556,79 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 }
             });
 
-            const schoolMap: Record<string, any[]> = {};
-            students.forEach(s => {
-                const schoolName = s.school || s.kelas_id || 'Sekolah Umum';
-                if (!schoolMap[schoolName]) {
-                    schoolMap[schoolName] = [];
-                }
-                schoolMap[schoolName].push({
-                    ...s,
-                    score: studentScores[s.username] || 0
-                });
+            // Check if there are explicit LCC / Regu accounts (e.g. exam_type === 'LCC' or username starting with 'regu_' or 'team_')
+            const explicitRegus = students.filter(s => {
+                const et = (s.exam_type || '').toUpperCase();
+                const un = (s.username || '').toLowerCase();
+                return et.includes('LCC') || et.includes('CERDAS') || un.startsWith('regu_') || un.startsWith('team_');
             });
 
             const newTeams: LccTeam[] = [];
             const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
             let teamIndex = 0;
 
-            Object.entries(schoolMap).forEach(([schoolName, schoolStudents]) => {
-                schoolStudents.sort((a, b) => b.score - a.score);
-
-                for (let i = 0; i < schoolStudents.length; i += 3) {
-                    const batch = schoolStudents.slice(i, i + 3);
-                    const reguLetter = String.fromCharCode(65 + Math.floor(i / 3));
-                    const reguName = `REGU ${reguLetter} (${schoolName})`;
-                    const teamId = `regu_${schoolName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${reguLetter}`;
-                    
-                    const totalScore = batch.reduce((sum, st) => sum + st.score, 0);
-                    const memberNames = batch.map(st => st.nama_lengkap || st.username);
-
+            if (explicitRegus.length > 0) {
+                // Use explicit Regu accounts directly as teams
+                explicitRegus.forEach(regu => {
+                    const score = studentScores[regu.username] || 0;
+                    const schoolName = regu.school || regu.kelas_id || 'Sekolah';
                     newTeams.push({
-                        id: teamId,
-                        name: reguName,
+                        id: `team_${regu.username}`,
+                        name: regu.fullname || regu.nama_lengkap || regu.username,
                         school: schoolName,
-                        score: Math.round(totalScore),
+                        score: Math.round(score),
                         color: colors[teamIndex % colors.length],
-                        logo: '',
+                        logo: regu.photo_url || '',
                         correctCount: 0,
                         wrongCount: 0,
-                        members: memberNames
+                        members: [regu.fullname || regu.username]
                     });
                     teamIndex++;
-                }
-            });
+                });
+            } else {
+                // Fallback: Group regular students 3 by 3 per school
+                const schoolMap: Record<string, any[]> = {};
+                students.forEach(s => {
+                    const schoolName = s.school || s.kelas_id || 'Sekolah Umum';
+                    if (!schoolMap[schoolName]) {
+                        schoolMap[schoolName] = [];
+                    }
+                    schoolMap[schoolName].push({
+                        ...s,
+                        score: studentScores[s.username] || 0
+                    });
+                });
+
+                Object.entries(schoolMap).forEach(([schoolName, schoolStudents]) => {
+                    schoolStudents.sort((a, b) => b.score - a.score);
+
+                    for (let i = 0; i < schoolStudents.length; i += 3) {
+                        const batch = schoolStudents.slice(i, i + 3);
+                        const reguLetter = String.fromCharCode(65 + Math.floor(i / 3));
+                        const reguName = `REGU ${reguLetter} (${schoolName})`;
+                        const teamId = `regu_${schoolName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${reguLetter}`;
+                        
+                        const totalScore = batch.reduce((sum, st) => sum + st.score, 0);
+                        const memberNames = batch.map(st => st.nama_lengkap || st.fullname || st.username);
+
+                        newTeams.push({
+                            id: teamId,
+                            name: reguName,
+                            school: schoolName,
+                            score: Math.round(totalScore),
+                            color: colors[teamIndex % colors.length],
+                            logo: '',
+                            correctCount: 0,
+                            wrongCount: 0,
+                            members: memberNames
+                        });
+                        teamIndex++;
+                    }
+                });
+            }
 
             if (newTeams.length === 0) {
-                showToast('Tidak ada regu yang dapat dibentuk dari data siswa.', 'warning');
+                showToast('Tidak ada regu yang dapat dibentuk dari data peserta.', 'warning');
                 return;
             }
 
@@ -576,7 +681,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
             try {
                 const bstr = evt.target?.result;
                 const wb = XLSX.read(bstr, { type: 'binary' });
@@ -615,6 +720,20 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
                 // Sort questions by nomorSoal
                 importedQuestions.sort((a, b) => a.nomorSoal - b.nomorSoal);
+                
+                try {
+                    // Clear existing questions in Supabase first to match frontend replacement
+                    for (const q of questions) {
+                        await api.deleteLccQuestion(q.id);
+                    }
+                    // Insert new ones
+                    for (const q of importedQuestions) {
+                        await api.saveLccQuestion(q);
+                    }
+                } catch (dbErr) {
+                    console.error("Gagal menyimpan soal ke Supabase setelah import", dbErr);
+                }
+
                 setQuestions(importedQuestions);
                 showToast(`Berhasil mengimpor ${importedQuestions.length} soal dari Excel!`, 'success');
             } catch (err) {
@@ -648,7 +767,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     };
 
     // SAVE SINGLE QUESTION
-    const handleSaveQuestion = (e: React.FormEvent) => {
+    const handleSaveQuestion = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!questionForm.soal.trim()) {
             showToast('Isi pertanyaan / soal terlebih dahulu!', 'warning');
@@ -656,16 +775,23 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         }
 
         if (editingQuestionId) {
-            setQuestions(prev => prev.map(q => q.id === editingQuestionId ? {
-                ...q,
+            const updatedQ = {
+                id: editingQuestionId,
                 nomorSoal: questionForm.nomorSoal,
                 babak: questionForm.babak,
                 soal: questionForm.soal,
                 referensiJawaban: questionForm.referensiJawaban,
                 poin: questionForm.poin,
                 kategori: questionForm.kategori
-            } : q));
-            showToast(`Soal ${questionForm.nomorSoal} berhasil diperbarui!`, 'success');
+            };
+            setQuestions(prev => prev.map(q => q.id === editingQuestionId ? updatedQ : q));
+            try {
+                await api.saveLccQuestion(updatedQ);
+                showToast(`Soal ${questionForm.nomorSoal} berhasil diperbarui!`, 'success');
+            } catch (err) {
+                console.error("Gagal memperbarui soal di database", err);
+                showToast('Gagal menyimpan perubahan ke database', 'error');
+            }
             setEditingQuestionId(null);
         } else {
             const newQ: LccQuestion = {
@@ -678,7 +804,13 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 kategori: questionForm.kategori
             };
             setQuestions(prev => [...prev, newQ]);
-            showToast(`Soal ${questionForm.nomorSoal} berhasil ditambahkan!`, 'success');
+            try {
+                await api.saveLccQuestion(newQ);
+                showToast(`Soal ${questionForm.nomorSoal} berhasil ditambahkan!`, 'success');
+            } catch (err) {
+                console.error("Gagal menambahkan soal ke database", err);
+                showToast('Gagal menyimpan soal baru ke database', 'error');
+            }
         }
 
         // Reset form for next question
@@ -708,18 +840,33 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     };
 
     // DELETE QUESTION
-    const handleDeleteQuestion = (id: string) => {
+    const handleDeleteQuestion = async (id: string) => {
         if (confirm('Hapus soal ini dari Bank Soal?')) {
             setQuestions(prev => prev.filter(q => q.id !== id));
-            showToast('Soal berhasil dihapus', 'info');
+            try {
+                await api.deleteLccQuestion(id);
+                showToast('Soal berhasil dihapus', 'info');
+            } catch (err) {
+                console.error("Gagal menghapus soal dari database", err);
+                showToast('Gagal menghapus soal dari database', 'error');
+            }
         }
     };
 
     // CLEAR ALL QUESTIONS
-    const handleClearAllQuestions = () => {
+    const handleClearAllQuestions = async () => {
         if (confirm('Apakah Anda yakin ingin menghapus SEMUA soal dari Bank Soal?')) {
+            const oldQuestions = [...questions];
             setQuestions([]);
-            showToast('Semua soal telah dihapus', 'warning');
+            try {
+                for (const q of oldQuestions) {
+                    await api.deleteLccQuestion(q.id);
+                }
+                showToast('Semua soal telah dihapus', 'warning');
+            } catch (err) {
+                console.error("Gagal menghapus semua soal dari database", err);
+                showToast('Gagal menghapus beberapa soal dari database', 'error');
+            }
         }
     };
 
@@ -1741,7 +1888,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                             <div className="flex gap-1.5">
                                                 <input
                                                     type="number"
-                                                    placeholder="Input angka..."
+                                                    placeholder="Skor Custom Manual"
                                                     value={customScoreInputs[team.id] || ''}
                                                     onChange={e => setCustomScoreInputs({ ...customScoreInputs, [team.id]: e.target.value })}
                                                     onKeyDown={e => {
@@ -1892,7 +2039,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Kategori / Mapel</label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. Pengetahuan Umum / Matematika"
+                                        placeholder="Kategori / Mapel"
                                         value={questionForm.kategori}
                                         onChange={e => setQuestionForm({ ...questionForm, kategori: e.target.value })}
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
@@ -1915,7 +2062,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pertanyaan / Teks Soal</label>
                                     <textarea
                                         rows={3}
-                                        placeholder="Tuliskan pertanyaan soal di sini..."
+                                        placeholder="Pertanyaan / Teks Soal"
                                         value={questionForm.soal}
                                         onChange={e => setQuestionForm({ ...questionForm, soal: e.target.value })}
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500"
@@ -1926,7 +2073,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-emerald-600 uppercase block mb-1">Referensi / Kunci Jawaban</label>
                                     <textarea
                                         rows={3}
-                                        placeholder="Tuliskan kunci/referensi jawaban lengkap di sini..."
+                                        placeholder="Referensi / Kunci Jawaban"
                                         value={questionForm.referensiJawaban}
                                         onChange={e => setQuestionForm({ ...questionForm, referensiJawaban: e.target.value })}
                                         className="w-full p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 outline-none focus:border-emerald-500"
@@ -1956,7 +2103,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <Search size={14} className="absolute left-3 top-3 text-slate-400"/>
                                     <input
                                         type="text"
-                                        placeholder="Cari soal / babak..."
+                                        placeholder="Pencarian Soal / Babak"
                                         value={questionSearch}
                                         onChange={e => setQuestionSearch(e.target.value)}
                                         className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-indigo-500"
@@ -2316,7 +2463,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tombol Tambah Skor Cepat (Pisahkan koma)</label>
                                     <input 
                                         type="text" 
-                                        placeholder="5, 10, 20, 25, 50, 100"
+                                        placeholder="Tombol Tambah Skor Cepat"
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500" 
                                         value={(config.tambahSkorSteps || [5, 10, 20, 25, 50, 100]).join(', ')}
                                         onChange={e => {
@@ -2331,7 +2478,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tombol Kurang Skor Cepat (Pisahkan koma)</label>
                                     <input 
                                         type="text" 
-                                        placeholder="5, 10, 20, 50, 100"
+                                        placeholder="Tombol Kurang Skor Cepat"
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500" 
                                         value={(config.kurangSkorSteps || [5, 10, 20, 50, 100]).join(', ')}
                                         onChange={e => {

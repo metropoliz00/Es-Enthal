@@ -157,27 +157,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
              </button>
              
              {/* GROUP: UJIAN */}
-             <GroupHeader id="ujian" label="Ujian" />
-             {(openGroups['ujian'] || isCollapsed) && (
-                 <div className={!isCollapsed ? "pl-2 border-l border-slate-200 ml-3 space-y-1" : "space-y-1"}>
-                    <button onClick={() => handleTabChange('status_tes')} className={navButtonClass('status_tes')} title="Live Status">
-                        <Monitor size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Live Status</span>}
-                    </button>
-                    <button onClick={() => handleTabChange('rilis_token')} className={navButtonClass('rilis_token')} title="Token & Timer">
-                        <Key size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Token & Timer</span>}
-                    </button>
-                    <button onClick={() => handleTabChange('kelompok_tes')} className={navButtonClass('kelompok_tes')} title="Set Ujian Aktif">
-                        <Group size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Set Ujian Aktif</span>}
-                    </button>
-                    <button onClick={() => handleTabChange('atur_sesi')} className={navButtonClass('atur_sesi')} title="Atur Sesi">
-                        <Clock size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Atur Sesi</span>}
-                    </button>
-                    {currentUserState.role === 'admin' && (
-                        <button onClick={() => handleTabChange('atur_gelombang')} className={navButtonClass('atur_gelombang')} title="Atur Gelombang">
-                            <Calendar size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Atur Gelombang</span>}
-                        </button>
-                    )}
-                 </div>
+             {currentUserState.role !== 'Operator Kecamatan' && currentUserState.role !== 'Juri' && currentUserState.role !== 'juri' && (
+                 <>
+                     <GroupHeader id="ujian" label="Ujian" />
+                     {(openGroups['ujian'] || isCollapsed) && (
+                         <div className={!isCollapsed ? "pl-2 border-l border-slate-200 ml-3 space-y-1" : "space-y-1"}>
+                            <button onClick={() => handleTabChange('status_tes')} className={navButtonClass('status_tes')} title="Live Status">
+                                <Monitor size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Live Status</span>}
+                            </button>
+                            <button onClick={() => handleTabChange('rilis_token')} className={navButtonClass('rilis_token')} title="Token & Timer">
+                                <Key size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Token & Timer</span>}
+                            </button>
+                            <button onClick={() => handleTabChange('kelompok_tes')} className={navButtonClass('kelompok_tes')} title="Set Ujian Aktif">
+                                <Group size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Set Ujian Aktif</span>}
+                            </button>
+                            <button onClick={() => handleTabChange('atur_sesi')} className={navButtonClass('atur_sesi')} title="Atur Sesi">
+                                <Clock size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Atur Sesi</span>}
+                            </button>
+                            {currentUserState.role === 'admin' && (
+                                <button onClick={() => handleTabChange('atur_gelombang')} className={navButtonClass('atur_gelombang')} title="Atur Gelombang">
+                                    <Calendar size={22} className={isCollapsed ? "" : "shrink-0 mr-3"}/> {!isCollapsed && <span>Atur Gelombang</span>}
+                                </button>
+                            )}
+                         </div>
+                     )}
+                 </>
              )}
 
              {/* GROUP: LOMBA & CERDAS CERMAT */}
@@ -191,7 +195,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
              )}
              
              {/* GROUP: MANAJEMEN USER */}
-             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
+             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                  <>
                     <GroupHeader id="user" label="Manajemen User" />
                     {(openGroups['user'] || isCollapsed) && (
@@ -210,7 +214,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
              )}
 
              {/* GROUP: DATA & LAPORAN */}
-             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
+             {(currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                  <>
                     <GroupHeader id="data" label="Data & Laporan" />
                     {(openGroups['data'] || isCollapsed) && (
@@ -316,7 +320,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                     {activeTab === 'cetak_kartu' && <CetakKartuTab currentUser={currentUserState} students={dashboardData.allUsers || []} schedules={dashboardData.schedules || []} />}
                     
                     {/* Separate Tabs based on Mode and Pass onSwitchUser */}
-                    {activeTab === 'data_user' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru') && (
+                    {activeTab === 'data_user' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                         <DaftarPesertaTab currentUser={currentUserState} onDataChange={fetchData} mode="siswa" onSwitchUser={onSwitchUser} />
                     )}
                     {activeTab === 'data_admin' && currentUserState.role === 'admin' && (
@@ -329,17 +333,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                     {activeTab === 'tujuan_pembelajaran' && currentUserState.role === 'admin' && <TujuanPembelajaranTab />}
                     
                     {/* REKAP & ANALISIS for Admin, Guru, and Juri */}
-                    {activeTab === 'rekap' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
+                    {activeTab === 'rekap' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                         <RekapTab students={dashboardData.allUsers} currentUser={currentUserState} />
                     )}
-                    {activeTab === 'analisis' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
+                    {activeTab === 'analisis' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                         <AnalisisTab currentUser={currentUserState} students={dashboardData.allUsers} />
                     )}
                     
                     {activeTab === 'ranking' && currentUserState.role === 'admin' && <RankingTab students={dashboardData.allUsers} />}
                     
                     {/* Allow Konfigurasi for Admin, Guru, and Juri */}
-                    {activeTab === 'konfigurasi' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri') && (
+                    {activeTab === 'konfigurasi' && (currentUserState.role === 'admin' || currentUserState.role === 'Guru' || currentUserState.role === 'Juri' || currentUserState.role === 'juri' || currentUserState.role === 'Operator Kecamatan' || currentUserState.role === 'Proktor Sekolah') && (
                         <KonfigurasiTab currentUser={currentUserState} />
                     )}
 

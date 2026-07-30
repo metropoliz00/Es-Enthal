@@ -502,7 +502,7 @@ const AnalisisTab = ({ currentUser, students }: { currentUser: User, students: a
                                                 {relevantTps.map(t => (<option key={t.id} value={t.id}>{t.id}</option>))}
                                             </select>
                                         </div>
-                                        <input type="text" readOnly className="w-2/3 p-2 border border-slate-200 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none bg-slate-100 text-slate-600 cursor-not-allowed" value={tpInput} placeholder="Deskripsi TP (Otomatis)" />
+                                        <input type="text" readOnly className="w-2/3 p-2 border border-slate-200 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none bg-slate-100 text-slate-600 cursor-not-allowed" value={tpInput} placeholder="Deskripsi Tujuan Pembelajaran" />
                                     </div>
                                     {selectedExam && relevantTps.length === 0 && !loadingTps && (
                                         <p className="text-[9px] text-orange-500 mt-1 italic">* Tidak ada data TP untuk Mapel ini. Tambahkan di menu Data Laporan {'>'} Tujuan Pembelajaran.</p>
@@ -513,7 +513,7 @@ const AnalisisTab = ({ currentUser, students }: { currentUser: User, students: a
                             {isSumatif && (
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Materi</label>
-                                    <input type="text" readOnly className="w-full p-2 border border-slate-200 rounded-lg text-sm font-medium outline-none bg-slate-100 text-slate-600 cursor-not-allowed" value={materiInput} placeholder="Materi (Otomatis dari TP)" />
+                                    <input type="text" readOnly className="w-full p-2 border border-slate-200 rounded-lg text-sm font-medium outline-none bg-slate-100 text-slate-600 cursor-not-allowed" value={materiInput} placeholder="Materi" />
                                 </div>
                             )}
                             {/* Class Filter */}

@@ -372,7 +372,7 @@ const BankSoalTab = () => {
                         className="w-full bg-transparent font-medium text-slate-700 outline-none text-xs" 
                         value={currentQ[field]} 
                         onChange={e => setCurrentQ({...currentQ, [field]: e.target.value})} 
-                        placeholder={`Isi ${label}...`} 
+                        placeholder={label} 
                     />
                 </div>
             </div>
@@ -630,7 +630,7 @@ const BankSoalTab = () => {
                                     <div className="grid grid-cols-4 gap-3">
                                         <div className="bg-white p-3 rounded-xl border border-slate-200">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">ID Soal</label>
-                                            <input required type="text" className="w-full font-mono font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.id} onChange={e => setCurrentQ({...currentQ, id: e.target.value})} placeholder="Q1" />
+                                            <input required type="text" className="w-full font-mono font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.id} onChange={e => setCurrentQ({...currentQ, id: e.target.value})} placeholder="ID Soal" />
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-slate-200">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tipe</label>
@@ -642,11 +642,11 @@ const BankSoalTab = () => {
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-slate-200">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Kelas</label>
-                                            <input type="text" className="w-full font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.kelas || ''} onChange={e => setCurrentQ({...currentQ, kelas: e.target.value})} placeholder="-" />
+                                            <input type="text" className="w-full font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.kelas || ''} onChange={e => setCurrentQ({...currentQ, kelas: e.target.value})} placeholder="Kelas" />
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-slate-200">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Kode Paket</label>
-                                            <input type="text" className="w-full font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.kode_paket || ''} onChange={e => setCurrentQ({...currentQ, kode_paket: e.target.value})} placeholder="A" />
+                                            <input type="text" className="w-full font-bold text-slate-700 text-sm outline-none bg-transparent" value={currentQ.kode_paket || ''} onChange={e => setCurrentQ({...currentQ, kode_paket: e.target.value})} placeholder="Kode Paket" />
                                         </div>
                                     </div>
 
@@ -706,7 +706,7 @@ const BankSoalTab = () => {
                                     {/* Question Text Area (Expanded) */}
                                     <div className="flex-1 bg-white p-4 rounded-xl border border-slate-200 flex flex-col min-h-[300px]">
                                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Konten Soal</label>
-                                        <textarea required className="flex-1 w-full bg-transparent outline-none resize-none font-medium text-slate-700 leading-relaxed text-sm" value={currentQ.text_soal} onChange={e => setCurrentQ({...currentQ, text_soal: e.target.value})} placeholder="Tulis pertanyaan disini..."></textarea>
+                                        <textarea required className="flex-1 w-full bg-transparent outline-none resize-none font-medium text-slate-700 leading-relaxed text-sm" value={currentQ.text_soal} onChange={e => setCurrentQ({...currentQ, text_soal: e.target.value})} placeholder="Konten Soal"></textarea>
                                     </div>
 
                                     {/* Image / Description Input */}
@@ -729,7 +729,7 @@ const BankSoalTab = () => {
                                                     className="w-full bg-slate-50 p-2.5 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-400 border border-transparent focus:border-indigo-200 focus:bg-white transition-all resize-y" 
                                                     value={currentQ.gambar} 
                                                     onChange={e => setCurrentQ({...currentQ, gambar: e.target.value})} 
-                                                    placeholder="Isi dengan Link URL Gambar atau Ketik Teks Deskripsi/Wacana Soal..." 
+                                                    placeholder="Gambar / Deskripsi Soal" 
                                                 />
                                             </div>
                                             <label className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg cursor-pointer hover:bg-indigo-100 transition mt-1 shrink-0" title="Upload Gambar"><Upload size={16}/><input type="file" className="hidden" onChange={(e) => handleImageUpload(e, 'gambar')} /></label>
@@ -737,7 +737,7 @@ const BankSoalTab = () => {
                                         {/* Added Caption Input */}
                                         <div className="border-t border-slate-100 pt-2">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase block flex items-center gap-1"><Type size={10}/> Keterangan (Catatan Tambahan / Caption)</label>
-                                            <input type="text" className="w-full bg-slate-50 p-2 mt-1 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-300 border border-transparent focus:border-indigo-200 focus:bg-white transition-all" value={currentQ.caption || ''} onChange={e => setCurrentQ({...currentQ, caption: e.target.value})} placeholder="Contoh: Perhatikan wacana / gambar di atas..." />
+                                            <input type="text" className="w-full bg-slate-50 p-2 mt-1 rounded-lg text-xs font-medium outline-none text-slate-700 placeholder-slate-300 border border-transparent focus:border-indigo-200 focus:bg-white transition-all" value={currentQ.caption || ''} onChange={e => setCurrentQ({...currentQ, caption: e.target.value})} placeholder="Keterangan (Catatan Tambahan / Caption)" />
                                         </div>
                                     </div>
                                 </div>
@@ -759,12 +759,12 @@ const BankSoalTab = () => {
                                         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200/50 mb-4">
                                             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                                                 <label className="text-[10px] font-bold text-emerald-600 uppercase block mb-1">Kunci Jawaban</label>
-                                                <input required type="text" className="w-full bg-transparent font-mono font-black text-2xl text-emerald-700 outline-none placeholder-emerald-300" value={currentQ.kunci_jawaban} onChange={e => setCurrentQ({...currentQ, kunci_jawaban: e.target.value})} placeholder="A" />
+                                                <input required type="text" className="w-full bg-transparent font-mono font-black text-2xl text-emerald-700 outline-none placeholder-emerald-300" value={currentQ.kunci_jawaban} onChange={e => setCurrentQ({...currentQ, kunci_jawaban: e.target.value})} placeholder="Kunci Jawaban" />
                                                 <p className="text-[9px] text-emerald-500 mt-1">PG: A | PGK: A,B | B/S: B,S,B (Urutan A,B,C..)</p>
                                             </div>
                                             <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                                                 <label className="text-[10px] font-bold text-indigo-500 uppercase block mb-1">Bobot Nilai</label>
-                                                <input type="number" className="w-full bg-transparent font-black text-2xl text-indigo-700 outline-none placeholder-indigo-300" value={currentQ.bobot} onChange={e => setCurrentQ({...currentQ, bobot: Number(e.target.value)})} placeholder="10" />
+                                                <input type="number" className="w-full bg-transparent font-black text-2xl text-indigo-700 outline-none placeholder-indigo-300" value={currentQ.bobot} onChange={e => setCurrentQ({...currentQ, bobot: Number(e.target.value)})} placeholder="Bobot Nilai" />
                                             </div>
                                         </div>
                                         

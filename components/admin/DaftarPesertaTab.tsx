@@ -53,18 +53,31 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             console.error("Failed to load exam types", e);
         }
     };
+
+    // Automatic exam_type set based on selected role
+    useEffect(() => {
+        if (formData.role === 'Juri' || formData.role === 'juri' || formData.role === 'Operator Kecamatan') {
+            if (formData.exam_type !== 'LCC') {
+                setFormData(prev => ({ ...prev, exam_type: 'LCC' }));
+            }
+        } else if (formData.role === 'Proktor Sekolah') {
+            if (formData.exam_type !== 'OSN' && formData.exam_type !== 'TKA') {
+                setFormData(prev => ({ ...prev, exam_type: 'OSN' }));
+            }
+        }
+    }, [formData.role]);
     
     const loadUsers = async () => { 
         setLoading(true); 
         try { 
             const data = await api.getUsers(); 
             // Filter by mode immediately upon load
-            const filteredData = data.filter(u => mode === 'siswa' ? u.role === 'siswa' : (u.role === 'admin' || u.role === 'Guru' || u.role === 'Juri' || u.role === 'juri'));
+            const filteredData = data.filter(u => mode === 'siswa' ? u.role === 'siswa' : (u.role === 'admin' || u.role === 'Guru' || u.role === 'Juri' || u.role === 'juri' || u.role === 'Operator Kecamatan' || u.role === 'Proktor Sekolah'));
             
             // Sort by created_at to ensure consistent numbering
             filteredData.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
-            let counters: any = { admin: 0, Guru: 0, Juri: 0, siswa: {} };
+            let counters: any = { admin: 0, Guru: 0, Juri: 0, 'Operator Kecamatan': 0, 'Proktor Sekolah': 0, siswa: {} };
 
             // Map data securely. API returns 'fullname', 'school', 'gender' directly from DB.
             const mappedData = filteredData.map(u => {
@@ -78,6 +91,12 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                 } else if (u.role === 'Juri' || u.role === 'juri') {
                     counters.Juri++;
                     display_id = `JUR-${String(counters.Juri).padStart(2, '0')}`;
+                } else if (u.role === 'Operator Kecamatan') {
+                    counters['Operator Kecamatan']++;
+                    display_id = `OPK-${String(counters['Operator Kecamatan']).padStart(2, '0')}`;
+                } else if (u.role === 'Proktor Sekolah') {
+                    counters['Proktor Sekolah']++;
+                    display_id = `PRK-${String(counters['Proktor Sekolah']).padStart(2, '0')}`;
                 } else {
                     const et = u.exam_type || 'NA';
                     if (!counters.siswa[et]) counters.siswa[et] = 0;
@@ -192,7 +211,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             gender: 'L', 
             photo: '', 
             photo_url: '',
-            exam_type: ''
+            exam_type: currentUser.role === 'Operator Kecamatan' ? 'LCC' : currentUser.role === 'Proktor Sekolah' ? 'OSN' : ''
         }); 
         setIsModalOpen(true); 
     };
@@ -262,6 +281,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             ); 
         } 
         if (currentUser.role === 'Guru') res = res.filter(u => u.role === 'siswa' && (u.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase()); 
+        if (currentUser.role === 'Operator Kecamatan') res = res.filter(u => u.role === 'siswa' && u.exam_type === 'LCC');
+        if (currentUser.role === 'Proktor Sekolah') res = res.filter(u => u.role === 'siswa' && (u.exam_type === 'OSN' || u.exam_type === 'TKA')); 
         
         // Sort by Name
         return res.sort((a, b) => {
@@ -538,20 +559,20 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                 </div>
                                 <div><div className="flex justify-between items-center mb-1">
                                          <label className="block text-[10px] font-bold text-slate-400 uppercase">
-                                             {isBereguExamType(formData.exam_type) ? 'Nama Regu / Tim' : 'Nama Lengkap'}
+                                             {formData.role === 'siswa' && isBereguExamType(formData.exam_type) ? 'Nama Regu / Tim' : 'Nama Lengkap'}
                                          </label>
-                                         {isBereguExamType(formData.exam_type) && (
+                                         {formData.role === 'siswa' && isBereguExamType(formData.exam_type) && (
                                              <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
                                                  Format Beregu (LCC)
                                              </span>
                                          )}
                                      </div>
-                                     <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder={isBereguExamType(formData.exam_type) ? "Contoh: Regu A - SDN Remen 2" : "Nama Lengkap"} /></div>
+                                     <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder={formData.role === 'siswa' && isBereguExamType(formData.exam_type) ? "Contoh: Regu A - SDN Remen 2" : "Nama Lengkap"} /></div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>
                                         <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} disabled={currentUser.role !== 'admin' || mode === 'siswa'}>
-                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="admin">Admin Pusat</option></>}
+                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="Operator Kecamatan">Operator Kecamatan</option><option value="Proktor Sekolah">Proktor Sekolah</option><option value="admin">Admin Pusat</option></>}
                                         </select>
                                     </div>
                                     <div>
@@ -579,9 +600,21 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                         className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" 
                                         value={formData.exam_type} 
                                         onChange={e => setFormData({...formData, exam_type: e.target.value})}
+                                        disabled={currentUser.role === 'Operator Kecamatan'}
                                     >
-                                        <option value="">-- Tidak Ada --</option>
-                                        {examTypes.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                        {currentUser.role === 'Operator Kecamatan' ? (
+                                            <option value="LCC">Lomba Cerdas Cermat</option>
+                                        ) : currentUser.role === 'Proktor Sekolah' ? (
+                                            <>
+                                                <option value="OSN">OSN</option>
+                                                <option value="TKA">TKA</option>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="">-- Tidak Ada --</option>
+                                                {examTypes.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                            </>
+                                        )}
                                     </select>
                                 </div>
 
