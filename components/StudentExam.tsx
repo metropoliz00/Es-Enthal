@@ -216,7 +216,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const currentQ = examQuestions[currentIdx];
   const isLast = currentIdx === examQuestions.length - 1;
   const progress = Math.round((Object.keys(answers).length / examQuestions.length) * 100);
-  const schoolLogo = appConfig['LOGO_SEKOLAH'];
+  const schoolLogo = appConfig['LOGO_SEKOLAH'] || "https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png";
 
   return (
     <div className={`flex flex-col h-screen bg-slate-100 font-sans overflow-hidden select-none ${!isLocked ? 'blur-sm pointer-events-none' : ''}`}>

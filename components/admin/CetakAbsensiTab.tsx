@@ -145,7 +145,9 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
                 <title>Cetak Absensi</title>
                 <style>
                     body { font-family: 'Times New Roman', serif; padding: 20px; color: #000; }
-                    .header-container { text-align: center; border-bottom: 3px double black; padding-bottom: 10px; margin-bottom: 20px; }
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double black; padding-bottom: 10px; margin-bottom: 20px; }
+                    .header-logo { height: 65px; width: auto; object-fit: contain; }
+                    .header-text { text-align: center; flex: 1; }
                     .header-container h2 { margin: 0; font-size: 18px; text-transform: uppercase; line-height: 1.2; }
                     .header-container h3 { margin: 5px 0 0; font-size: 16px; font-weight: normal; }
                     .info-table { margin-bottom: 20px; font-size: 14px; width: 100%; }
@@ -163,9 +165,13 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
             </head>
             <body>
                 <div class="header-container">
-                    <h2>DAFTAR HADIR PESERTA</h2>
-                    <h2>${examType}</h2>
-                    <h3>${schoolName} - ${kecamatanName}</h3>
+                    ${logoLeftUrl !== transparentPixel ? `<img src="${logoLeftUrl}" class="header-logo" />` : `<div style="width: 65px;"></div>`}
+                    <div class="header-text">
+                        <h2>DAFTAR HADIR PESERTA</h2>
+                        <h2>${examType}</h2>
+                        <h3>${schoolName} - ${kecamatanName}</h3>
+                    </div>
+                    ${logoRightUrl !== transparentPixel ? `<img src="${logoRightUrl}" class="header-logo" />` : `<div style="width: 65px;"></div>`}
                 </div>
 
                 <table class="info-table">

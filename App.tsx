@@ -44,7 +44,7 @@ function App() {
       api.getAppConfig().then(config => {
           setAppConfig(config);
           // Set Favicon dynamically
-          const favicon = config['FAVICON_URL'] || config['LOGO_SEKOLAH'] || 'https://image2url.com/r2/default/images/1772981483268-6fdcb4fb-dc32-43a1-b310-74b8dbd8e9b7.png';
+          const favicon = config['FAVICON_URL'] || config['LOGO_SEKOLAH'] || 'https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png';
           if (favicon) {
              let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
              if (!link) {
@@ -340,7 +340,7 @@ function App() {
   const rawFooterCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
   const footerCopyright = rawFooterCopyright.includes("UPT SD NEGERI REMEN 2") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;
   const footerInfo = appConfig['FOOTER_INFO'] || "Secure Browser";
-  const schoolLogo = appConfig['LOGO_SEKOLAH'];
+  const schoolLogo = appConfig['LOGO_SEKOLAH'] || "https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png";
 
   // --- VIEW: LOGIN ---
   if (view === 'login') {

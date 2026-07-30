@@ -38,6 +38,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
   
   // App Config for Logo
   const [appConfig, setAppConfig] = useState<Record<string, string>>({});
+  const sidebarLogo = appConfig['LOGO_SEKOLAH'] || "https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png";
 
   // Collapsible Menu State
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -124,11 +125,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
             <div className={`flex items-center gap-3 ${isCollapsed ? 'hidden' : ''}`}>
                 <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-white font-black text-xl shadow-[0_10px_20px_-5px_rgba(99,102,241,0.3)] overflow-hidden border-2 border-white relative shrink-0">
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-200"></div>
-                    {appConfig['LOGO_SEKOLAH'] ? (
-                        <img src={appConfig['LOGO_SEKOLAH']} className="w-full h-full object-contain p-1 relative z-10" alt="Logo" />
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center relative z-10">M</div>
-                    )}
+                    <img src={sidebarLogo} className="w-full h-full object-contain p-1 relative z-10" alt="Logo" />
                 </div>
                 <div className="flex flex-col overflow-hidden">
                     <h1 className="font-black text-2xl text-slate-800 tracking-tighter leading-none">
@@ -143,11 +140,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
             {/* Logo when collapsed */}
             <div className={`${isCollapsed ? 'block' : 'hidden'} w-10 h-10 bg-white rounded-xl flex items-center justify-center text-white font-black text-xl shadow-md overflow-hidden border-2 border-white relative`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-200"></div>
-                {appConfig['LOGO_SEKOLAH'] ? (
-                    <img src={appConfig['LOGO_SEKOLAH']} className="w-full h-full object-contain p-1 relative z-10" alt="Logo" />
-                ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center relative z-10">M</div>
-                )}
+                <img src={sidebarLogo} className="w-full h-full object-contain p-1 relative z-10" alt="Logo" />
             </div>
             
             <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden md:flex text-slate-400 hover:text-indigo-600 transition-colors p-2 hover:bg-slate-100 rounded-lg justify-center"><Menu size={20}/></button>
