@@ -68,11 +68,7 @@ export interface LccConfig {
     activeGugus?: string;
 }
 
-const DEFAULT_TEAMS: LccTeam[] = [
-    { id: 'regu_a', name: 'REGU A', school: 'SDN Remen 1', score: 0, color: '#3b82f6', logo: '', correctCount: 0, wrongCount: 0 },
-    { id: 'regu_b', name: 'REGU B', school: 'SDN Jenu 2', score: 0, color: '#ef4444', logo: '', correctCount: 0, wrongCount: 0 },
-    { id: 'regu_c', name: 'REGU C', school: 'SDN Beji 1', score: 0, color: '#10b981', logo: '', correctCount: 0, wrongCount: 0 },
-];
+const DEFAULT_TEAMS: LccTeam[] = [];
 
 const DEFAULT_QUESTIONS: LccQuestion[] = [];
 
