@@ -1109,18 +1109,24 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         const targetTeam = teams.find(t => t.id === id);
         
         try {
+            console.log("Deleting team ID:", id);
             const res = await api.deleteLccTeam(id);
+            console.log("Delete LCC team result:", res);
             if (res.success) {
                 setTeams(prev => prev.filter(t => t.id !== id));
                 if (targetTeam) {
                     showToast(`Regu ${targetTeam.name} berhasil dihapus dari database!`, 'success');
                     // Delete the user account as well
                     const username = targetTeam.name.replace(/\s+/g, '').toLowerCase() + '_lcc';
-                    api.deleteUser(username).catch(err => {
+                    console.log("Attempting to delete associated user account:", username);
+                    api.deleteUser(username).then(userRes => {
+                        console.log("Delete user account result:", userRes);
+                    }).catch(err => {
                         console.error("Failed to delete associated user account:", err);
                     });
                 }
             } else {
+                console.error("Failed to delete LCC team:", res.error);
                 showToast(`Gagal menghapus regu: ${res.error?.message || 'Database error'}`, 'error');
             }
         } catch (err: any) {
