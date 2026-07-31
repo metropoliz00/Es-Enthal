@@ -100,6 +100,15 @@ export const LccReguBuzzerView: React.FC<LccReguBuzzerViewProps> = ({ currentUse
 
     // HANDLE PRESS BELL
     const handlePressBell = () => {
+        if (!isBuzzerOpen) {
+            showToast('Buzzer saat ini masih ditutup/dinonaktifkan oleh Juri.', 'warning');
+            return;
+        }
+        if (lockedTeamId) {
+            showToast('Buzzer sudah dikunci oleh regu lain!', 'error');
+            return;
+        }
+
         // Play Bell & Buzzer sound INSTANTLY with zero latency
         soundFx.playBell();
         soundFx.playBuzzer();
@@ -146,7 +155,7 @@ export const LccReguBuzzerView: React.FC<LccReguBuzzerViewProps> = ({ currentUse
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activeTeam]);
+    }, [activeTeam, isBuzzerOpen, lockedTeamId]);
 
     const isMyTeamLocked = lockedTeamId === activeTeam.id;
     const isOtherTeamLocked = lockedTeamId !== null && !isMyTeamLocked;
@@ -252,34 +261,36 @@ export const LccReguBuzzerView: React.FC<LccReguBuzzerViewProps> = ({ currentUse
 
                     {/* Outer Glow Ring */}
                     <div 
-                        className={`w-64 h-64 md:w-80 md:h-80 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${
+                        className={`w-64 h-64 md:w-80 md:h-80 rounded-full flex items-center justify-center shadow-2xl ${
                             isMyTeamLocked 
                                 ? 'bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 ring-8 ring-amber-300 shadow-[0_0_80px_rgba(251,191,36,0.9)] scale-105'
-                                : isOtherTeamLocked
-                                ? 'bg-slate-800/80 border-4 border-slate-700 opacity-60'
+                                : isOtherTeamLocked || !isBuzzerOpen
+                                ? 'bg-slate-800/80 border-4 border-slate-700 opacity-60 cursor-not-allowed'
                                 : 'bg-gradient-to-tr from-amber-600 via-orange-500 to-yellow-400 hover:scale-105 active:scale-95 shadow-[0_0_60px_rgba(245,158,11,0.5)] cursor-pointer'
                         }`}
-                        onClick={handlePressBell}
+                        onPointerDown={handlePressBell}
                     >
                         {/* Inner 3D Button Disc */}
                         <div 
-                            className={`w-52 h-52 md:w-64 md:h-64 rounded-full flex flex-col items-center justify-center text-slate-950 transition-all duration-150 border-4 ${
+                            className={`w-52 h-52 md:w-64 md:h-64 rounded-full flex flex-col items-center justify-center text-slate-950 border-4 ${
                                 isPressed 
                                     ? 'scale-90 bg-amber-300 border-white' 
+                                    : isOtherTeamLocked || !isBuzzerOpen
+                                    ? 'bg-slate-700 border-slate-600 text-slate-500 shadow-inner'
                                     : 'bg-gradient-to-b from-yellow-300 via-amber-400 to-orange-500 border-yellow-200 shadow-inner'
                             }`}
                         >
                             {/* Animated Bell Icon */}
-                            <div className={`transition-transform duration-300 ${isRinging ? 'animate-bounce scale-110' : 'group-hover:scale-110'}`}>
+                            <div className={`transition-transform duration-300 ${isRinging ? 'animate-bounce scale-110' : (!isOtherTeamLocked && isBuzzerOpen ? 'group-hover:scale-110' : '')}`}>
                                 <Bell 
                                     size={80} 
-                                    className={`fill-slate-950 stroke-slate-950 ${isRinging ? 'rotate-12' : ''}`} 
+                                    className={`${isOtherTeamLocked || !isBuzzerOpen ? 'fill-slate-600 stroke-slate-500' : 'fill-slate-950 stroke-slate-950'} ${isRinging ? 'rotate-12' : ''}`} 
                                     strokeWidth={2.5}
                                 />
                             </div>
 
                             <span className="font-black text-xl md:text-2xl uppercase tracking-widest mt-2 drop-shadow-sm">
-                                {isMyTeamLocked ? 'TERKUNCI!' : 'TEKAN BEL'}
+                                {isMyTeamLocked ? 'TERKUNCI!' : isOtherTeamLocked ? 'TERKUNCI REGU LAIN' : !isBuzzerOpen ? 'DITUTUP JURI' : 'TEKAN BEL'}
                             </span>
 
                             <span className="text-[10px] md:text-xs font-bold text-slate-900/80 tracking-wider uppercase mt-0.5">

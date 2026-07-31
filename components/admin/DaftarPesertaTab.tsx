@@ -157,6 +157,14 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
     };
     
     const handleEdit = (user: any) => { 
+        let gugusVal = user.kelas || '';
+        let schoolVal = user.school || '';
+        if (schoolVal.includes(' | ')) {
+            const parts = schoolVal.split(' | ');
+            gugusVal = parts[0].trim();
+            schoolVal = parts[1].trim();
+        }
+
         setFormData({ 
             id: user.id || '', 
             display_id: user.display_id || '',
@@ -164,8 +172,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             password: user.password, 
             fullname: user.fullname, 
             role: user.role, 
-            school: user.school || '', 
-            kelas: user.kelas || '',   
+            school: schoolVal, 
+            kelas: gugusVal,   
             kecamatan: user.kecamatan || '', 
             gender: user.gender || 'L',
             photo: '', 
@@ -262,6 +270,12 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                     .filter(Boolean)
                     .join(' | ');
                 finalFormData.fullname = combined;
+
+                if (formData.kelas && formData.school) {
+                    finalFormData.school = `${formData.kelas.trim()} | ${formData.school.trim()}`;
+                } else if (formData.kelas) {
+                    finalFormData.school = formData.kelas.trim();
+                }
             }
             const res = await api.saveUser(finalFormData); 
             if (!res.success) {
@@ -637,7 +651,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                     <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>
                                         <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} disabled={currentUser.role !== 'admin' || mode === 'siswa'}>
-                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="Operator Kecamatan">Operator Kecamatan</option><option value="Proktor Sekolah">Proktor Sekolah</option><option value="admin">Admin Pusat</option></>}
+                                            {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="Operator Kecamatan">Operator Kecamatan / Gugus</option><option value="Proktor Sekolah">Proktor Sekolah</option><option value="admin">Admin Pusat</option></>}
                                         </select>
                                     </div>
                                     <div>
@@ -646,18 +660,28 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                     </div>
                                 </div>
                                 
-                                {/* Unified Class Selector for BOTH Student and Staff */}
+                                {/* Unified Class Selector / Gugus for BOTH Student and Staff */}
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                        {mode === 'siswa' ? 'Kelas Siswa' : 'Kelas Ampuan (Kosongkan jika semua kelas)'}
+                                        {mode === 'siswa' && isBereguExamType(formData.exam_type) ? 'Gugus' : (mode === 'siswa' ? 'Kelas Siswa' : 'Kelas Ampuan (Kosongkan jika semua kelas)')}
                                     </label>
-                                    {/* Using Select for Staff as well to enforce numeric class format */}
-                                    <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.kelas} onChange={e => setFormData({...formData, kelas: e.target.value})}>
-                                        <option value="">-- Pilih Kelas --</option>
-                                        {/* Allow "All Classes" for Guru Mapel/Admin */}
-                                        {mode !== 'siswa' && <option value="">Semua Kelas</option>}
-                                        {[1,2,3,4,5,6].map(k => <option key={k} value={String(k)}>Kelas {k}</option>)}
-                                    </select>
+                                    {mode === 'siswa' && isBereguExamType(formData.exam_type) ? (
+                                        <input 
+                                            type="text" 
+                                            className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" 
+                                            value={formData.kelas} 
+                                            onChange={e => setFormData({...formData, kelas: e.target.value})} 
+                                            placeholder="Contoh: Gugus 1" 
+                                            required
+                                        />
+                                    ) : (
+                                        <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.kelas} onChange={e => setFormData({...formData, kelas: e.target.value})}>
+                                            <option value="">-- Pilih Kelas --</option>
+                                            {/* Allow "All Classes" for Guru Mapel/Admin */}
+                                            {mode !== 'siswa' && <option value="">Semua Kelas</option>}
+                                            {[1,2,3,4,5,6].map(k => <option key={k} value={String(k)}>Kelas {k}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Jenis Ujian</label>

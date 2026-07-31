@@ -188,6 +188,10 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
     const [resetScoreTeamId, setResetScoreTeamId] = useState<string | null>(null);
     const [showResetAllDataModal, setShowResetAllDataModal] = useState<boolean>(false);
+    const [deleteConfirmTeamId, setDeleteConfirmTeamId] = useState<string | null>(null);
+    const [isTeamSelectorModalOpen, setIsTeamSelectorModalOpen] = useState<boolean>(false);
+    const [candidateTeams, setCandidateTeams] = useState<LccTeam[]>([]);
+    const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
     const [questionForm, setQuestionForm] = useState({
         nomorSoal: 1,
         babak: 'Babak Penyisihan - Soal Wajib',
@@ -570,6 +574,123 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         setCustomScoreInputs(prev => ({ ...prev, [teamId]: '' }));
     };
 
+    // OPEN TEAM SELECTOR MODAL FROM PARTICIPANT LIST
+    const openTeamSelector = async () => {
+        try {
+            showToast('Memuat daftar peserta dari database...', 'info');
+            const [usersData, recapData] = await Promise.all([
+                api.getUsers(),
+                api.getRecap()
+            ]);
+            const students = usersData.filter(u => u.role?.toLowerCase() === 'siswa');
+            if (students.length === 0) {
+                showToast('Tidak ada data peserta (siswa) ditemukan!', 'warning');
+                return;
+            }
+
+            const studentScores: Record<string, number> = {};
+            recapData.forEach((r: any) => {
+                const uname = r.user_id || r.username;
+                const score = parseFloat(r.nilai) || 0;
+                if (uname) {
+                    if (!studentScores[uname] || score > studentScores[uname]) {
+                        studentScores[uname] = score;
+                    }
+                }
+            });
+
+            const explicitRegus = students.filter(s => {
+                const et = (s.exam_type || '').toUpperCase();
+                const un = (s.username || '').toLowerCase();
+                return et.includes('LCC') || et.includes('CERDAS') || un.startsWith('regu_') || un.startsWith('team_');
+            });
+
+            const generatedCandidates: LccTeam[] = [];
+            const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+            let teamIndex = 0;
+
+            if (explicitRegus.length > 0) {
+                explicitRegus.forEach(regu => {
+                    const score = studentScores[regu.username] || 0;
+                    const schoolName = regu.school || regu.kelas_id || 'Sekolah';
+                    
+                    let cleanTeamName = regu.username.toUpperCase().replace(/_/g, ' ');
+                    if (!cleanTeamName.includes('REGU') && !cleanTeamName.includes('TEAM')) {
+                        cleanTeamName = `REGU ${cleanTeamName}`;
+                    }
+
+                    generatedCandidates.push({
+                        id: `team_${regu.username}`,
+                        name: cleanTeamName,
+                        school: schoolName,
+                        score: Math.round(score),
+                        color: colors[teamIndex % colors.length],
+                        logo: regu.photo_url || '',
+                        correctCount: 0,
+                        wrongCount: 0,
+                        members: [regu.fullname || regu.nama_lengkap || regu.username]
+                    });
+                    teamIndex++;
+                });
+            } else {
+                const schoolMap: Record<string, any[]> = {};
+                students.forEach(s => {
+                    const schoolName = s.school || s.kelas_id || 'Sekolah Umum';
+                    if (!schoolMap[schoolName]) {
+                        schoolMap[schoolName] = [];
+                    }
+                    schoolMap[schoolName].push({
+                        ...s,
+                        score: studentScores[s.username] || 0
+                    });
+                });
+
+                Object.entries(schoolMap).forEach(([schoolName, schoolStudents]) => {
+                    schoolStudents.sort((a, b) => b.score - a.score);
+                    for (let i = 0; i < schoolStudents.length; i += 3) {
+                        const batch = schoolStudents.slice(i, i + 3);
+                        const reguLetter = String.fromCharCode(65 + Math.floor(i / 3));
+                        const reguName = `REGU ${reguLetter} (${schoolName})`;
+                        const teamId = `regu_${schoolName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${reguLetter}`;
+                        
+                        const totalScore = batch.reduce((sum, st) => sum + st.score, 0);
+                        const memberNames = batch.map(st => st.nama_lengkap || st.fullname || st.username);
+
+                        generatedCandidates.push({
+                            id: teamId,
+                            name: reguName,
+                            school: schoolName,
+                            score: Math.round(totalScore),
+                            color: colors[teamIndex % colors.length],
+                            logo: '',
+                            correctCount: 0,
+                            wrongCount: 0,
+                            members: memberNames
+                        });
+                        teamIndex++;
+                    }
+                });
+            }
+
+            setCandidateTeams(generatedCandidates);
+            setSelectedCandidateIds(generatedCandidates.map(c => c.id));
+            setIsTeamSelectorModalOpen(true);
+        } catch (err: any) {
+            showToast('Gagal memuat data peserta: ' + (err?.message || err), 'error');
+        }
+    };
+
+    const handleImportSelectedTeams = () => {
+        const chosen = candidateTeams.filter(c => selectedCandidateIds.includes(c.id));
+        if (chosen.length === 0) {
+            showToast('Pilih minimal 1 regu untuk ditarik ke scoreboard!', 'warning');
+            return;
+        }
+        setTeams(chosen);
+        setIsTeamSelectorModalOpen(false);
+        showToast(`Berhasil menarik ${chosen.length} regu dari daftar peserta!`, 'success');
+    };
+
     // SYNC TEAMS & SCORES FROM CBT EXAM RESULTS (Supports explicit Regu accounts or grouping 3 students per school)
     const syncTeamsFromCBT = async () => {
         try {
@@ -612,16 +733,22 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 explicitRegus.forEach(regu => {
                     const score = studentScores[regu.username] || 0;
                     const schoolName = regu.school || regu.kelas_id || 'Sekolah';
+                    
+                    let cleanTeamName = regu.username.toUpperCase().replace(/_/g, ' ');
+                    if (!cleanTeamName.includes('REGU') && !cleanTeamName.includes('TEAM')) {
+                        cleanTeamName = `REGU ${cleanTeamName}`;
+                    }
+
                     newTeams.push({
                         id: `team_${regu.username}`,
-                        name: regu.fullname || regu.nama_lengkap || regu.username,
+                        name: cleanTeamName,
                         school: schoolName,
                         score: Math.round(score),
                         color: colors[teamIndex % colors.length],
                         logo: regu.photo_url || '',
                         correctCount: 0,
                         wrongCount: 0,
-                        members: [regu.fullname || regu.username]
+                        members: [regu.fullname || regu.nama_lengkap || regu.username]
                     });
                     teamIndex++;
                 });
@@ -974,6 +1101,29 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
             showToast(`Skor ${targetTeam.name} diriset ke 0`, 'info');
         }
         setResetScoreTeamId(null);
+    };
+
+    const confirmDeleteTeam = async () => {
+        if (!deleteConfirmTeamId) return;
+        const id = deleteConfirmTeamId;
+        const targetTeam = teams.find(t => t.id === id);
+        
+        try {
+            const res = await api.deleteLccTeam(id);
+            if (res.success) {
+                setTeams(prev => prev.filter(t => t.id !== id));
+                if (targetTeam) {
+                    showToast(`Regu ${targetTeam.name} berhasil dihapus dari database!`, 'success');
+                }
+            } else {
+                showToast(`Gagal menghapus regu: ${res.error?.message || 'Database error'}`, 'error');
+            }
+        } catch (err: any) {
+            console.error("Error deleting team:", err);
+            showToast(`Gagal menghapus regu: ${err.message || 'Error'}`, 'error');
+        }
+        
+        setDeleteConfirmTeamId(null);
     };
 
     const handleUndo = () => {
@@ -2549,6 +2699,13 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                 </h3>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <button
+                                        onClick={openTeamSelector}
+                                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                                        title="Pilih dan tarik data regu secara spesifik dari daftar peserta"
+                                    >
+                                        <Users size={14}/> Pilih & Tarik Regu dari Peserta
+                                    </button>
+                                    <button
                                         onClick={syncTeamsFromCBT}
                                         className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl transition flex items-center gap-1.5 shadow-sm"
                                         title="Siswa mengerjakan ujian secara umum, sistem otomatis mengelompokkan 3 siswa per sekolah menjadi 1 regu dan mensinkronkan skor."
@@ -2599,16 +2756,26 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                             <span className="font-black text-xs uppercase" style={{ color: t.color }}>
                                                 Detail Regu {idx + 1}
                                             </span>
-                                            <input 
-                                                type="color" 
-                                                value={t.color}
-                                                onChange={e => {
-                                                    const val = e.target.value;
-                                                    setTeams(prev => prev.map(item => item.id === t.id ? { ...item, color: val } : item));
-                                                }}
-                                                className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
-                                                title="Pilih Warna Regu"
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="color" 
+                                                    value={t.color}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        setTeams(prev => prev.map(item => item.id === t.id ? { ...item, color: val } : item));
+                                                    }}
+                                                    className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
+                                                    title="Pilih Warna Regu"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmTeamId(t.id)}
+                                                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                                                    title="Hapus Regu"
+                                                >
+                                                    <Trash2 size={16}/>
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-2">
@@ -3074,6 +3241,125 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 cancelText="Batal"
                 type="danger"
             />
+
+            {/* Modal Konfirmasi Hapus Regu LCC */}
+            <ConfirmationModal
+                isOpen={deleteConfirmTeamId !== null}
+                onClose={() => setDeleteConfirmTeamId(null)}
+                onConfirm={confirmDeleteTeam}
+                title="Hapus Regu"
+                message={`Apakah Anda yakin ingin menghapus regu ${teams.find(t => t.id === deleteConfirmTeamId)?.name || ''} dari daftar? Data skor dan identitas regu ini akan hilang.`}
+                confirmText="Hapus"
+                cancelText="Batal"
+                type="danger"
+            />
+
+            {/* MODAL PILIH & TARIK REGU DARI DAFTAR PESERTA */}
+            {isTeamSelectorModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 fade-in">
+                    <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full p-6 space-y-5 shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
+                                    <Users size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-base text-slate-800 uppercase tracking-tight">
+                                        PILIH & TARIK REGU DARI DAFTAR PESERTA
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium">Pilih regu atau sekolah yang ingin ditarik ke Scoreboard LCC ({candidateTeams.length} kandidat ditemukan)</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsTeamSelectorModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 shrink-0 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <div className="text-xs font-bold text-slate-700">
+                                Terpilih: <span className="text-indigo-600 font-black">{selectedCandidateIds.length}</span> dari {candidateTeams.length} Regu
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setSelectedCandidateIds(candidateTeams.map(c => c.id))}
+                                    className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-lg shadow-sm"
+                                >
+                                    Pilih Semua
+                                </button>
+                                <button
+                                    onClick={() => setSelectedCandidateIds([])}
+                                    className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-lg shadow-sm"
+                                >
+                                    Batalkan Semua
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-[250px]">
+                            {candidateTeams.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 text-xs font-medium">
+                                    Tidak ada data peserta atau regu yang ditemukan di database.
+                                </div>
+                            ) : (
+                                candidateTeams.map(c => {
+                                    const isSelected = selectedCandidateIds.includes(c.id);
+                                    return (
+                                        <div 
+                                            key={c.id} 
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setSelectedCandidateIds(selectedCandidateIds.filter(id => id !== c.id));
+                                                } else {
+                                                    setSelectedCandidateIds([...selectedCandidateIds, c.id]);
+                                                }
+                                            }}
+                                            className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex items-center justify-between gap-3 ${isSelected ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSelected}
+                                                    onChange={() => {}} 
+                                                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                                />
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-xs text-slate-800 uppercase" style={{ color: c.color }}>{c.name}</span>
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">{c.school}</span>
+                                                    </div>
+                                                    {c.members && c.members.length > 0 && (
+                                                        <p className="text-[11px] text-slate-500 mt-1">
+                                                            Anggota: {c.members.join(', ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <div className="text-[10px] text-slate-400 uppercase font-bold">Skor CBT</div>
+                                                <div className="text-sm font-black text-indigo-600">{c.score} Poin</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="pt-2 flex gap-3 shrink-0 border-t border-slate-100">
+                            <button 
+                                onClick={() => setIsTeamSelectorModalOpen(false)}
+                                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition"
+                            >
+                                Batal
+                            </button>
+                            <button 
+                                onClick={handleImportSelectedTeams}
+                                disabled={selectedCandidateIds.length === 0}
+                                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                            >
+                                <Check size={16}/> Impor {selectedCandidateIds.length} Regu Terpilih ke Scoreboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

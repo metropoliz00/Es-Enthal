@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy, Bell } from 'lucide-react';
+import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy, Bell, Laptop } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import ScoreboardLCCTab from './components/admin/ScoreboardLCCTab';
@@ -10,7 +10,7 @@ import { api } from './src/services/api';
 import { useToast } from './context/ToastContext';
 import { isBereguExamType } from './utils/adminHelpers';
 
-type ViewState = 'login' | 'confirm' | 'exam' | 'result' | 'admin' | 'regu_bell';
+type ViewState = 'login' | 'babak_selection' | 'confirm' | 'exam' | 'result' | 'admin' | 'regu_bell';
 
 // Elegant Loading Overlay
 const LoadingOverlay = ({ message }: { message: string }) => (
@@ -90,7 +90,12 @@ function App() {
             if (parsedUser.role === 'admin' || parsedUser.role === 'Guru' || parsedUser.role === 'Juri' || parsedUser.role === 'juri') {
                 setView('admin');
             } else {
-                setView('confirm');
+                const isReguAccount = parsedUser.username.toLowerCase().includes('regu') || parsedUser.username.toLowerCase().includes('team') || isBereguExamType(parsedUser.exam_type);
+                if (isReguAccount) {
+                    setView('babak_selection');
+                } else {
+                    setView('confirm');
+                }
                 api.getExams().then(allExams => {
                     let filteredExams = allExams;
                     if (parsedUser.active_exam && parsedUser.active_exam !== '-' && parsedUser.active_exam !== '') {
@@ -157,7 +162,13 @@ function App() {
                 }
                 setExamList(filteredExams);
                 if (filteredExams.length > 0) setSelectedExamId(filteredExams[0].id); else setSelectedExamId('');
-                setView('confirm');
+                
+                const isReguAccount = user.username.toLowerCase().includes('regu') || user.username.toLowerCase().includes('team') || isBereguExamType(user.exam_type);
+                if (isReguAccount) {
+                    setView('babak_selection');
+                } else {
+                    setView('confirm');
+                }
             }
         } else {
             setErrorMsg(error || 'ID Pengguna atau Kata Sandi salah.');
@@ -201,7 +212,12 @@ function App() {
               setExamList(filteredExams);
               if (filteredExams.length > 0) setSelectedExamId(filteredExams[0].id); else setSelectedExamId('');
               
-              setView('confirm');
+              const isReguAccount = targetUser.username.toLowerCase().includes('regu') || targetUser.username.toLowerCase().includes('team') || isBereguExamType(targetUser.exam_type);
+              if (isReguAccount) {
+                  setView('babak_selection');
+              } else {
+                  setView('confirm');
+              }
           } catch (e) {
               console.error(e);
               showToast("Gagal memuat data ujian untuk user ini.", "error");
@@ -355,6 +371,60 @@ function App() {
   const footerCopyright = rawFooterCopyright.includes("EXAMORA") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;
   const footerInfo = appConfig['FOOTER_INFO'] || "Secure Browser";
   const schoolLogo = appConfig['LOGO_SEKOLAH'] || "https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png";
+
+  // --- VIEW: BABAK SELECTION ---
+  if (view === 'babak_selection') {
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 font-sans relative">
+              {/* Animated Background */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-amber-400/20 rounded-full blur-[120px] animate-pulse"></div>
+                  <div className="absolute bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '0.7s' }}></div>
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-3xl shadow-2xl border border-white max-w-2xl w-full text-center relative z-10">
+                  <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-4 tracking-tight">Selamat Datang, <span className="text-amber-500">{currentUser?.nama_lengkap}</span></h2>
+                  <p className="text-slate-500 text-lg mb-10 font-medium">Silakan pilih babak kompetisi yang akan Anda ikuti saat ini.</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <button 
+                          onClick={() => setView('confirm')}
+                          className="group relative flex flex-col items-center justify-center p-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 border border-indigo-400"
+                      >
+                          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
+                              <Laptop size={40} className="text-white" />
+                          </div>
+                          <span className="text-2xl font-bold text-white mb-2 tracking-wide">BABAK I</span>
+                          <span className="text-indigo-100 text-sm font-medium">Tes Komputer (CBT)</span>
+                      </button>
+
+                      <button 
+                          onClick={() => setView('regu_bell')}
+                          className="group relative flex flex-col items-center justify-center p-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 border border-amber-400"
+                      >
+                          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
+                              <Bell size={40} className="text-white" />
+                          </div>
+                          <span className="text-2xl font-bold text-white mb-2 tracking-wide">BABAK II</span>
+                          <span className="text-amber-100 text-sm font-medium">Cerdas Cermat (Buzzer)</span>
+                      </button>
+                  </div>
+                  
+                  <button 
+                      onClick={() => {
+                          localStorage.removeItem('cbt_user');
+                          sessionStorage.removeItem('cbt_user');
+                          setCurrentUser(null);
+                          setView('login');
+                      }}
+                      className="mt-12 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors inline-flex items-center gap-2"
+                  >
+                      <LogOut size={16} /> Kembali ke Login
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   // --- VIEW: LOGIN ---
   if (view === 'login') {
@@ -705,7 +775,11 @@ function App() {
 
   // --- VIEW: REGU BELL ---
   if (view === 'regu_bell') {
-    return <LccReguBuzzerView currentUser={currentUser || undefined} onBack={() => setView('confirm')} />;
+    const handleBack = () => {
+        const isReguAccount = currentUser?.username.toLowerCase().includes('regu') || currentUser?.username.toLowerCase().includes('team') || isBereguExamType(currentUser?.exam_type);
+        setView(isReguAccount ? 'babak_selection' : 'confirm');
+    };
+    return <LccReguBuzzerView currentUser={currentUser || undefined} onBack={handleBack} />;
   }
 
   // --- VIEW: EXAM ---

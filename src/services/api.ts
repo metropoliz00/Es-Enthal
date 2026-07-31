@@ -55,6 +55,59 @@ const ensureExamExists = async (subject: string): Promise<string> => {
     return examId;
 };
 
+// Helpers to encode/decode roles for database constraint users_role_check
+const encodeUserForDb = (userData: any): any => {
+    const validDbRoles = ['admin', 'Guru', 'siswa'];
+    let dbRole = userData.role || 'siswa';
+    let rawRole = String(dbRole).trim();
+    let dbExamType = userData.exam_type === '' ? null : userData.exam_type;
+
+    if (rawRole.toLowerCase() === 'admin') dbRole = 'admin';
+    else if (rawRole.toLowerCase() === 'guru') dbRole = 'Guru';
+    else if (rawRole.toLowerCase() === 'siswa') dbRole = 'siswa';
+    else {
+        // Custom roles (e.g., 'Operator Kecamatan', 'Juri', 'Proktor Sekolah', 'Operator Gugus')
+        dbRole = 'Guru';
+        dbExamType = `ROLE:${rawRole}${userData.exam_type ? `:${userData.exam_type}` : ''}`;
+    }
+
+    return {
+        username: userData.username,
+        password: userData.password,
+        role: dbRole,
+        fullname: userData.fullname || userData.nama_lengkap || '',
+        nama_lengkap: userData.fullname || userData.nama_lengkap || '',
+        gender: userData.gender || userData.jenis_kelamin || null,
+        jenis_kelamin: userData.gender || userData.jenis_kelamin || null,
+        school: userData.school || userData.kelas_id || '',
+        kelas_id: userData.school || userData.kelas_id || '',
+        kelas: userData.kelas || '',
+        kecamatan: userData.kecamatan || '',
+        exam_type: dbExamType,
+        active_exam: userData.active_exam === '' ? null : userData.active_exam,
+        active_tp: userData.active_tp === '' ? null : userData.active_tp,
+        photo_url: userData.photo_url || null
+    };
+};
+
+const decodeUserFromDb = (u: any): any => {
+    if (!u) return u;
+    let role = u.role;
+    let exam_type = u.exam_type || '';
+
+    if (exam_type && typeof exam_type === 'string' && exam_type.startsWith('ROLE:')) {
+        const parts = exam_type.split(':');
+        role = parts[1] || role;
+        exam_type = parts[2] || '';
+    }
+
+    return {
+        ...u,
+        role,
+        exam_type
+    };
+};
+
 export const api = {
   login: async (username: string, password?: string): Promise<{user: User | null, error?: string}> => {
     console.log("Attempting login for:", username);
@@ -131,7 +184,7 @@ export const api = {
           return { user: null, error: "Username atau password salah." };
       }
       
-      const dataRow = userData[0];
+      const dataRow = decodeUserFromDb(userData[0]);
       
       if (dataRow.password !== password) {
           return { user: null, error: "Username atau password salah." };
@@ -141,10 +194,10 @@ export const api = {
           id: dataRow.username,
           username: dataRow.username,
           role: dataRow.role,
-          nama_lengkap: dataRow.fullname,
-          jenis_kelamin: dataRow.gender, 
+          nama_lengkap: dataRow.fullname || dataRow.nama_lengkap || dataRow.username,
+          jenis_kelamin: dataRow.gender || dataRow.jenis_kelamin, 
           kelas: dataRow.kelas,
-          kelas_id: dataRow.school, 
+          kelas_id: dataRow.school || dataRow.kelas_id, 
           kecamatan: dataRow.kecamatan, 
           active_exam: dataRow.active_exam, 
           session: dataRow.session,
@@ -444,36 +497,21 @@ export const api = {
   getUsers: async (): Promise<any[]> => {
       const { data, error } = await supabase.from('users').select('*');
       if (error || !data) return [];
-      return data.map((u: any) => ({
-          ...u,
-          kelas_id: u.school,
-          photo_url: formatGoogleDriveUrl(u.photo_url),
-          active_tp: u.active_tp || '',
-          active_paket: u.active_paket || '',
-          exam_type: u.exam_type || ''
-      }));
+      return data.map((u: any) => {
+          const decoded = decodeUserFromDb(u);
+          return {
+              ...decoded,
+              kelas_id: decoded.school || decoded.kelas_id,
+              photo_url: formatGoogleDriveUrl(decoded.photo_url),
+              active_tp: decoded.active_tp || '',
+              exam_type: decoded.exam_type || ''
+          };
+      });
   },
 
   saveUser: async (userData: any): Promise<{success: boolean, message: string}> => {
-      // Map frontend fields to backend columns
-      const dataToSave: any = {
-          username: userData.username,
-          password: userData.password,
-          role: userData.role,
-          fullname: userData.fullname,
-          nama_lengkap: userData.fullname, // Fallback for older schema
-          gender: userData.gender,
-          jenis_kelamin: userData.gender, // Fallback for older schema
-          school: userData.school,
-          kelas_id: userData.school, // Fallback for older schema
-          kelas: userData.kelas,
-          kecamatan: userData.kecamatan,
-          exam_type: userData.exam_type === '' ? null : userData.exam_type,
-          active_exam: userData.active_exam === '' ? null : userData.active_exam,
-          active_tp: userData.active_tp === '' ? null : userData.active_tp,
-          active_paket: userData.active_paket === '' ? null : userData.active_paket,
-          photo_url: userData.photo_url || null
-      };
+      // Encode user object so custom roles are safely stored without breaking DB constraints
+      const dataToSave = encodeUserForDb(userData);
 
       // Check if user exists by ID first (to allow username changes)
       let existing = null;
@@ -508,24 +546,7 @@ export const api = {
   },
 
   importUsers: async (users: any[]): Promise<{success: boolean, message: string}> => {
-      const mappedUsers = users.map(u => ({
-          username: u.username,
-          password: u.password,
-          role: u.role,
-          fullname: u.fullname,
-          nama_lengkap: u.fullname,
-          gender: u.gender,
-          jenis_kelamin: u.gender,
-          school: u.school,
-          kelas_id: u.school,
-          kelas: u.kelas,
-          kecamatan: u.kecamatan,
-          exam_type: u.exam_type === '' ? null : u.exam_type,
-          active_exam: u.active_exam === '' ? null : u.active_exam,
-          active_tp: u.active_tp === '' ? null : u.active_tp,
-          active_paket: u.active_paket === '' ? null : u.active_paket,
-          photo_url: u.photo_url || null
-      }));
+      const mappedUsers = users.map(u => encodeUserForDb(u));
       const { error } = await supabase.from('users').upsert(mappedUsers, { onConflict: 'username' });
       return { success: !error, message: error?.message || 'Success' };
   },
@@ -568,7 +589,7 @@ export const api = {
 
   // UPDATED: Added examType as 5th argument, activePaket as 6th
   assignTestGroup: async (usernames: string[], examId: string, session: string, tpId: string = '', examType: string = '', activePaket: string = ''): Promise<{success: boolean}> => {
-      const { error } = await supabase.from('users').update({ active_exam: examId, session, active_tp: tpId, exam_type: examType, active_paket: activePaket }).in('username', usernames);
+      const { error } = await supabase.from('users').update({ active_exam: examId, session, active_tp: tpId, exam_type: examType }).in('username', usernames);
       return { success: !error };
   },
 
@@ -787,6 +808,15 @@ export const api = {
           return { success: !error, error };
       } catch (err: any) {
           console.error("Error in saveLccTeams:", err);
+          return { success: false, error: err };
+      }
+  },
+  deleteLccTeam: async (teamId: string): Promise<{success: boolean; error?: any}> => {
+      try {
+          const { error } = await supabase.from('lcc_teams').delete().eq('id', teamId);
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in deleteLccTeam:", err);
           return { success: false, error: err };
       }
   },
