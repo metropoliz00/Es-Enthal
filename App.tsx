@@ -394,7 +394,7 @@ function App() {
                              </div>
                         </div>
                         <h1 className="text-7xl font-black tracking-tighter mb-4 leading-none drop-shadow-2xl">
-                            ES <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-white">ENTAL</span>
+                            ES <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-white">ENTHAL</span>
                         </h1>
                         <p className="text-indigo-200 text-sm font-normal tracking-wide mt-2 inline-block">
                             E-Student Evaluation Network for Testing, Analytics, and Learning
@@ -436,7 +436,7 @@ function App() {
                             </div>
 
                             <h2 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-1 lg:hidden text-center">
-                                ES <span className="text-indigo-600">ENTAL</span>
+                                ES <span className="text-indigo-600">ENTHAL</span>
                             </h2>
                             <p className="text-xs font-normal text-slate-400 mb-8 lg:hidden text-center">
                                 E-Student Evaluation Network for Testing, Analytics, and Learning
