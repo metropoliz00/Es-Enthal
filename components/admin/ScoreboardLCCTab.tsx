@@ -1127,7 +1127,9 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 }
             } else {
                 console.error("Failed to delete LCC team:", res.error);
-                showToast(`Gagal menghapus regu: ${res.error?.message || 'Database error'}`, 'error');
+                const errorMessage = res.error?.message || 
+                                     (typeof res.error === 'string' ? res.error : JSON.stringify(res.error) || "Database error");
+                showToast(`Gagal menghapus regu dari database: ${errorMessage}`, 'error');
             }
         } catch (err: any) {
             console.error("Error deleting team:", err);
