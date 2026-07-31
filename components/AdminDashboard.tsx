@@ -60,7 +60,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
   useEffect(() => {
       const tabNames: Record<TabType, string> = {
           'overview': 'Dashboard',
-          'scoreboard_lcc': 'Smart Scoreboard LCC',
+          'scoreboard_lcc': 'Smart Scoreboard',
           'status_tes': 'Live Status',
           'rilis_token': 'Token & Timer',
           'kelompok_tes': 'Set Ujian Aktif',
@@ -188,8 +188,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
              <GroupHeader id="lomba" label="Lomba & Cerdas Cermat" />
              {(openGroups['lomba'] || isCollapsed) && (
                  <div className={!isCollapsed ? "pl-2 border-l border-slate-200 ml-3 space-y-1" : "space-y-1"}>
-                    <button onClick={() => handleTabChange('scoreboard_lcc')} className={navButtonClass('scoreboard_lcc')} title="Scoreboard LCC">
-                        <Trophy size={22} className={isCollapsed ? "" : "shrink-0 mr-3 text-amber-500"}/> {!isCollapsed && <span className="font-bold text-amber-600">Scoreboard LCC</span>}
+                    <button onClick={() => handleTabChange('scoreboard_lcc')} className={navButtonClass('scoreboard_lcc')} title="Smart Scoreboard">
+                        <Trophy size={22} className={isCollapsed ? "" : "shrink-0 mr-3 text-amber-500"}/> {!isCollapsed && <span className="font-bold text-amber-600">Smart Scoreboard</span>}
                     </button>
                  </div>
              )}
@@ -347,7 +347,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onSwitc
                         <KonfigurasiTab currentUser={currentUserState} />
                     )}
 
-                    {/* SMART SCOREBOARD LCC */}
+                    {/* SMART SCOREBOARD */}
                     {activeTab === 'scoreboard_lcc' && <ScoreboardLCCTab currentUser={currentUserState} />}
                 </>
             )}

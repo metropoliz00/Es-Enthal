@@ -94,11 +94,11 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                 const subjectsRecord = mapping.reduce((acc: any, curr: any) => { acc[curr.examTypeId] = curr.subjectIds; return acc; }, {});
 
                 const rawFooterCopyright = mergedConfig['FOOTER_COPYRIGHT'] || '© 2026 | Dev. MeyGa';
-                const footerCopyrightVal = rawFooterCopyright.includes('UPT SD NEGERI REMEN 2') ? '© 2026 | Dev. MeyGa' : rawFooterCopyright;
+                const footerCopyrightVal = rawFooterCopyright.includes('EXAMORA') ? '© 2026 | Dev. MeyGa' : rawFooterCopyright;
 
                 setFormData({
                     schoolName: mergedConfig['SCHOOL_NAME'] || '',
-                    schoolTagline: mergedConfig['SCHOOL_TAGLINE'] || 'Religius - Aktif - Maju - Aman - Humanis',
+                    schoolTagline: mergedConfig['SCHOOL_TAGLINE'] || '',
                     footerCopyright: footerCopyrightVal,
                     footerInfo: mergedConfig['FOOTER_INFO'] || 'Secure Browser',
                     principalName: mergedConfig['PRINCIPAL_NAME'] || '',
@@ -360,7 +360,7 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                                     <input 
                                         type="text" 
                                         className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all ${isGuru ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'}`} 
-                                        placeholder="Contoh: UPT SDN REMEN 2"
+                                        placeholder="Contoh: EXAMORA"
                                         value={formData.schoolName}
                                         onChange={e => setFormData({...formData, schoolName: e.target.value})}
                                         readOnly={isGuru}
@@ -374,7 +374,7 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                                     <input 
                                         type="text" 
                                         className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all ${isGuru ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'}`} 
-                                        placeholder="Contoh: Religius - Aktif - Maju - Aman - Humanis"
+                                        placeholder="Contoh: Digital Assessment for Future"
                                         value={formData.schoolTagline}
                                         onChange={e => setFormData({...formData, schoolTagline: e.target.value})}
                                         readOnly={isGuru}

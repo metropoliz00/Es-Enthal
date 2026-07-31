@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Check, ChevronLeft, ChevronRight, LayoutGrid, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move, HelpCircle, User, Type, Users } from 'lucide-react';
+import { Clock, Check, ChevronLeft, ChevronRight, LayoutGrid, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move, HelpCircle, User, Type, Users, Bell } from 'lucide-react';
 import { isBereguExamType } from '../utils/adminHelpers';
+import LccReguBuzzerView from './LccReguBuzzerView';
 
 const isImageUrl = (val: string | undefined | null): boolean => {
     if (!val) return false;
@@ -107,6 +108,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [isLocked, setIsLocked] = useState(true);
   const [violationCount, setViolationCount] = useState(0);
   const [appConfig, setAppConfig] = useState<Record<string, string>>({});
+  const [showBellModal, setShowBellModal] = useState(false);
 
   const storageKey = `cbt_answers_${username}_${exam.id}`;
 
@@ -298,6 +300,16 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                   <p className="font-black text-indigo-600 text-sm">{exam.nama_ujian}</p>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{examType || 'Sumatif'}</p>
               </div>
+
+              {/* LAYAR BEL REGU LCC BUTTON */}
+              <button 
+                  onClick={() => setShowBellModal(true)} 
+                  className="px-3 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-amber-500/25 hover:scale-105 active:scale-95 transition border border-amber-300"
+                  title="Buka Layar Bel Regu LCC"
+              >
+                  <Bell size={16} className="animate-bounce fill-slate-950"/> 
+                  <span className="hidden sm:inline">LAYAR BEL</span>
+              </button>
 
               <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-full border border-slate-200 transition">
                   <LayoutGrid size={20}/>
@@ -547,6 +559,16 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                       <button onClick={() => executeFinish(false)} className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200">Ya, Kirim</button>
                   </div>
               </div>
+          </div>
+      )}
+
+      {/* LCC REGU BELL MODAL OVERLAY */}
+      {showBellModal && (
+          <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex flex-col fade-in">
+              <LccReguBuzzerView 
+                  currentUser={{ username, nama_lengkap: userFullName, photo_url: userPhoto, exam_type: examType } as any}
+                  onBack={() => setShowBellModal(false)}
+              />
           </div>
       )}
     </div>

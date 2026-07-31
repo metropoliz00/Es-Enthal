@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy } from 'lucide-react';
+import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy, Bell } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import ScoreboardLCCTab from './components/admin/ScoreboardLCCTab';
+import LccReguBuzzerView from './components/LccReguBuzzerView';
 import { api } from './src/services/api';
 import { useToast } from './context/ToastContext';
 import { isBereguExamType } from './utils/adminHelpers';
 
-type ViewState = 'login' | 'confirm' | 'exam' | 'result' | 'admin';
+type ViewState = 'login' | 'confirm' | 'exam' | 'result' | 'admin' | 'regu_bell';
 
 // Elegant Loading Overlay
 const LoadingOverlay = ({ message }: { message: string }) => (
@@ -26,10 +27,14 @@ const LoadingOverlay = ({ message }: { message: string }) => (
 function App() {
   const { showToast } = useToast();
 
-  // Check if standalone display parameter or hash is present for Projector
-  const isStandaloneDisplay = new URLSearchParams(window.location.search).get('display') === 'scoreboard' || window.location.hash === '#/scoreboard';
-  if (isStandaloneDisplay) {
+  // Check if standalone display parameter or hash is present for Projector or Regu Bell
+  const displayParam = new URLSearchParams(window.location.search).get('display');
+  const hashParam = window.location.hash;
+  if (displayParam === 'scoreboard' || hashParam === '#/scoreboard') {
     return <ScoreboardLCCTab forceScoreboardMode={true} />;
+  }
+  if (displayParam === 'regu' || displayParam === 'bell' || hashParam === '#/regu' || hashParam === '#/bell') {
+    return <LccReguBuzzerView />;
   }
 
   const [view, setView] = useState<ViewState>('login');
@@ -344,10 +349,10 @@ function App() {
   const selectedExam = examList.find(e => e.id === selectedExamId);
   const hasSession = currentUser?.session && currentUser.session !== '-' && currentUser.session.trim() !== '' && currentUser.session !== 'undefined';
 
-  const schoolName = appConfig['SCHOOL_NAME'] || "UPT SD NEGERI REMEN 2";
-  const schoolTagline = appConfig['SCHOOL_TAGLINE'] || "Religius - Aktif - Maju - Aman - Humanis";
+  const schoolName = appConfig['SCHOOL_NAME'] || "EXAMORA";
+  const schoolTagline = appConfig['SCHOOL_TAGLINE'] || "Digital Assessment for Future";
   const rawFooterCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
-  const footerCopyright = rawFooterCopyright.includes("UPT SD NEGERI REMEN 2") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;
+  const footerCopyright = rawFooterCopyright.includes("EXAMORA") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;
   const footerInfo = appConfig['FOOTER_INFO'] || "Secure Browser";
   const schoolLogo = appConfig['LOGO_SEKOLAH'] || "https://www.image2url.com/r2/default/images/1785421698382-3855a37b-f234-40a7-8038-1fe7b308a41e.png";
 
@@ -582,6 +587,14 @@ function App() {
                                     <p className="text-sm font-bold text-slate-700 truncate">{currentUser?.kecamatan || '-'}</p>
                                 </div>
                             </div>
+
+                            {/* Layar Bel Regu LCC Button */}
+                            <button 
+                                onClick={() => setView('regu_bell')}
+                                className="w-full mt-4 py-3 px-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs md:text-sm rounded-xl shadow-lg shadow-amber-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-2 border border-amber-300 uppercase tracking-wide"
+                            >
+                                <Bell size={18} className="animate-bounce fill-slate-950" /> Buka Layar Bel Regu LCC
+                            </button>
                         </div>
 
                         {/* Exam Details Card */}
@@ -688,6 +701,11 @@ function App() {
             )}
         </>
     );
+  }
+
+  // --- VIEW: REGU BELL ---
+  if (view === 'regu_bell') {
+    return <LccReguBuzzerView currentUser={currentUser || undefined} onBack={() => setView('confirm')} />;
   }
 
   // --- VIEW: EXAM ---

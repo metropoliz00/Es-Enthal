@@ -5,7 +5,7 @@ import {
     Settings, Clock, Bell, Users, ShieldAlert, CheckCircle2, XCircle, ArrowRight, 
     Download, Upload, FileSpreadsheet, FileText, RefreshCw, Lock, Unlock, Zap, 
     Sparkles, Radio, Award, AlertCircle, History, Undo, Redo, Eye, EyeOff, Monitor, ChevronRight, ChevronLeft, HelpCircle,
-    ExternalLink, Tv, Copy, X, LogOut, BookOpen, Edit3, Trash2, Check, Search, FileUp
+    ExternalLink, Tv, Copy, X, LogOut, BookOpen, Edit3, Trash2, Check, Search, FileUp, Save, Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
@@ -13,6 +13,7 @@ import { soundFx } from '../../utils/scoreboardAudio';
 import { useToast } from '../../context/ToastContext';
 import { User } from '../../types';
 import { api } from '../../src/services/api';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 export interface LccTeam {
     id: string;
@@ -64,6 +65,7 @@ export interface LccConfig {
     tambahSkorSteps: number[];
     kurangSkorSteps: number[];
     tampilkanSoalKeProjector: boolean;
+    activeGugus?: string;
 }
 
 const DEFAULT_TEAMS: LccTeam[] = [
@@ -72,44 +74,7 @@ const DEFAULT_TEAMS: LccTeam[] = [
     { id: 'regu_c', name: 'REGU C', school: 'SDN Beji 1', score: 0, color: '#10b981', logo: '', correctCount: 0, wrongCount: 0 },
 ];
 
-const DEFAULT_QUESTIONS: LccQuestion[] = [
-    {
-        id: 'q_1',
-        nomorSoal: 1,
-        babak: 'Babak Penyisihan - Soal Wajib',
-        soal: 'Apa nama ibu kota Provinsi Jawa Timur?',
-        referensiJawaban: 'Surabaya',
-        poin: 100,
-        kategori: 'Pengetahuan Umum'
-    },
-    {
-        id: 'q_2',
-        nomorSoal: 2,
-        babak: 'Babak Penyisihan - Soal Wajib',
-        soal: 'Siapakah pencipta lagu kebangsaan Indonesia Raya?',
-        referensiJawaban: 'Wage Rudolf Soepratman (W.R. Soepratman)',
-        poin: 100,
-        kategori: 'Pengetahuan Umum'
-    },
-    {
-        id: 'q_3',
-        nomorSoal: 3,
-        babak: 'Babak Penyisihan - Soal Rebutan',
-        soal: 'Berapakah hasil dari 25 x 4 + 150?',
-        referensiJawaban: '250',
-        poin: 100,
-        kategori: 'Matematika'
-    },
-    {
-        id: 'q_4',
-        nomorSoal: 4,
-        babak: 'Babak Penyisihan - Soal Rebutan',
-        soal: 'Sebutkan sila ke-3 dalam Pancasila!',
-        referensiJawaban: 'Persatuan Indonesia',
-        poin: 100,
-        kategori: 'Pancasila & Kewarganegaraan'
-    }
-];
+const DEFAULT_QUESTIONS: LccQuestion[] = [];
 
 const DEFAULT_CONFIG: LccConfig = {
     namaLomba: 'LOMBA CERDAS CERMAT TINGKAT KABUPATEN',
@@ -128,6 +93,7 @@ const DEFAULT_CONFIG: LccConfig = {
     tambahSkorSteps: [5, 10, 20, 25, 50, 100],
     kurangSkorSteps: [5, 10, 20, 50, 100],
     tampilkanSoalKeProjector: true,
+    activeGugus: 'all',
 };
 
 interface FloatingAnim {
@@ -145,6 +111,23 @@ interface ScoreboardLCCTabProps {
 export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScoreboardMode = false, currentUser }) => {
     const { showToast } = useToast();
     const isJuri = currentUser?.role?.toLowerCase() === 'juri';
+
+    // Helper to parse Gugus from team school
+    const getTeamGugus = (t: LccTeam) => {
+        if (!t.school) return '';
+        if (t.school.includes(' | ')) {
+            return t.school.split(' | ')[0].trim();
+        }
+        return '';
+    };
+
+    const getTeamSchoolOnly = (t: LccTeam) => {
+        if (!t.school) return '';
+        if (t.school.includes(' | ')) {
+            return t.school.split(' | ')[1].trim();
+        }
+        return t.school;
+    };
 
     // MODE: 'operator' | 'scoreboard'
     const [viewMode, setViewMode] = useState<'operator' | 'scoreboard'>(forceScoreboardMode ? 'scoreboard' : 'operator');
@@ -176,12 +159,29 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     const [teams, setTeams] = useState<LccTeam[]>([]);
     const [history, setHistory] = useState<ScoreHistoryLog[]>([]);
     const [questions, setQuestions] = useState<LccQuestion[]>([]);
+    const [isInitialLoaded, setIsInitialLoaded] = useState<boolean>(false);
+
+    const availableGugus = Array.from(new Set(
+        teams.map(getTeamGugus).filter(Boolean)
+    ));
+
+    const activeGugus = config.activeGugus || 'all';
+
+    const displayedTeams = activeGugus === 'all'
+        ? teams
+        : teams.filter(t => getTeamGugus(t).toLowerCase() === activeGugus.toLowerCase());
 
     const [showAnswerJuri, setShowAnswerJuri] = useState<boolean>(true);
     const [isQuestionCardOpen, setIsQuestionCardOpen] = useState<boolean>(true);
     const [customScoreInputs, setCustomScoreInputs] = useState<{ [teamId: string]: string }>({});
     const [questionSearch, setQuestionSearch] = useState<string>('');
     const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+    const [savingLccId, setSavingLccId] = useState<string | null>(null);
+    const [isFormSaved, setIsFormSaved] = useState<boolean>(false);
+    const [deleteConfirmQuestionId, setDeleteConfirmQuestionId] = useState<string | null>(null);
+    const [showClearAllModal, setShowClearAllModal] = useState<boolean>(false);
+    const [resetScoreTeamId, setResetScoreTeamId] = useState<string | null>(null);
+    const [showResetAllDataModal, setShowResetAllDataModal] = useState<boolean>(false);
     const [questionForm, setQuestionForm] = useState({
         nomorSoal: 1,
         babak: 'Babak Penyisihan - Soal Wajib',
@@ -190,6 +190,14 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         poin: 100,
         kategori: 'Pengetahuan Umum'
     });
+
+    // Auto calculate next question number when questions load or change
+    useEffect(() => {
+        if (!editingQuestionId && !isFormSaved && (!questionForm.soal || !questionForm.soal.trim())) {
+            const maxNum = questions.length > 0 ? Math.max(0, ...questions.map(q => q.nomorSoal || 0)) : 0;
+            setQuestionForm(prev => ({ ...prev, nomorSoal: maxNum + 1 }));
+        }
+    }, [questions, editingQuestionId, isFormSaved]);
 
     // TIMER STATE
     const [timeLeft, setTimeLeft] = useState<number>(config.durasiTimer);
@@ -213,6 +221,8 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     const [clockTime, setClockTime] = useState<string>('');
     const [activeTabOperator, setActiveTabOperator] = useState<'control' | 'soal' | 'settings' | 'history' | 'export'>('control');
     const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+    const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+    const [isSavingQuestions, setIsSavingQuestions] = useState<boolean>(false);
 
     // Sync Broadcast Channel across windows/tabs
     const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
@@ -231,6 +241,11 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     if (typeof to === 'boolean') setIsTimeout(to);
                     if (typeof bo === 'boolean') setIsBuzzerOpen(bo);
                     if (lt !== undefined) setLockedTeamId(lt);
+                } else if (event.data && event.data.type === 'TRIGGER_BUZZER') {
+                    const { teamId } = event.data.payload || {};
+                    if (teamId) {
+                        triggerBuzzer(teamId);
+                    }
                 }
             };
         }
@@ -258,55 +273,67 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         (async () => {
             try {
                 const dbConfig = await api.getLccConfig();
-                if (dbConfig) setConfig(prev => ({ ...prev, ...dbConfig }));
+                if (dbConfig) {
+                    setConfig(prev => ({ ...prev, ...dbConfig }));
+                } else {
+                    await api.saveLccConfig(DEFAULT_CONFIG);
+                }
 
                 const dbTeams = await api.getLccTeams();
-                setTeams(dbTeams || []);
-
-                let dbQuestions = await api.getLccQuestions();
-                if (!dbQuestions || dbQuestions.length === 0) {
-                    // Seed/initialize with DEFAULT_QUESTIONS in database!
-                    for (const q of DEFAULT_QUESTIONS) {
-                        await api.saveLccQuestion(q);
-                    }
-                    dbQuestions = await api.getLccQuestions();
+                if (dbTeams && dbTeams.length > 0) {
+                    setTeams(dbTeams);
+                } else {
+                    setTeams(DEFAULT_TEAMS);
+                    await api.saveLccTeams(DEFAULT_TEAMS);
                 }
-                setQuestions(dbQuestions || []);
+
+                const dbQuestions = await api.getLccQuestions();
+                if (dbQuestions && dbQuestions.length > 0) {
+                    setQuestions(dbQuestions);
+                }
 
                 const dbHistory = await api.getLccHistory();
-                setHistory(dbHistory || []);
+                if (dbHistory) setHistory(dbHistory);
+
+                setIsInitialLoaded(true);
             } catch (e) {
                 console.error("Failed to load LCC data from Supabase", e);
+                setIsInitialLoaded(true);
             }
         })();
     }, []);
 
     // Sync config changes to Supabase and localStorage
     useEffect(() => {
+        if (!isInitialLoaded) return;
         api.saveLccConfig(config);
         localStorage.setItem('lcc_scoreboard_config', JSON.stringify(config));
         syncStateToOtherTabs();
-    }, [config]);
+    }, [config, isInitialLoaded]);
 
     // Sync teams changes to Supabase and localStorage
     useEffect(() => {
+        if (!isInitialLoaded) return;
         api.saveLccTeams(teams);
         localStorage.setItem('lcc_scoreboard_teams', JSON.stringify(teams));
         syncStateToOtherTabs();
-    }, [teams]);
+    }, [teams, isInitialLoaded]);
 
-    // Sync questions changes to localStorage and other tabs
+    // Sync questions changes to Supabase and localStorage
     useEffect(() => {
+        if (!isInitialLoaded) return;
         if (questions && questions.length > 0) {
             localStorage.setItem('lcc_questions', JSON.stringify(questions));
         } else {
             localStorage.removeItem('lcc_questions');
         }
+        api.saveLccQuestions(questions);
         syncStateToOtherTabs();
-    }, [questions]);
+    }, [questions, isInitialLoaded]);
 
     // Sync history changes to Supabase and localStorage
     useEffect(() => {
+        if (!isInitialLoaded) return;
         if (history && history.length > 0) {
             localStorage.setItem('lcc_scoreboard_history', JSON.stringify(history));
         } else {
@@ -314,10 +341,11 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         }
         api.saveLccHistory(history);
         syncStateToOtherTabs();
-    }, [history]);
+    }, [history, isInitialLoaded]);
 
     // Silent background auto-refresh every 5 seconds & storage sync for multi-juri and projector real-time consistency
     useEffect(() => {
+        if (!isInitialLoaded) return;
         const silentCheckAndRefresh = async () => {
             try {
                 // 1. Sync via localStorage for instant local window/tab consistency
@@ -357,7 +385,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 }
 
                 const dbTeams = await api.getLccTeams();
-                if (dbTeams && dbTeams.length > 0) {
+                if (dbTeams) {
                     const dbTeamsStr = JSON.stringify(dbTeams);
                     setTeams(prev => {
                         if (JSON.stringify(prev) !== dbTeamsStr) {
@@ -373,17 +401,6 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     setHistory(prev => {
                         if (JSON.stringify(prev) !== dbHistoryStr) {
                             return dbHistory;
-                        }
-                        return prev;
-                    });
-                }
-
-                const dbQuestions = await api.getLccQuestions();
-                if (dbQuestions && dbQuestions.length > 0) {
-                    const dbQuestionsStr = JSON.stringify(dbQuestions);
-                    setQuestions(prev => {
-                        if (JSON.stringify(prev) !== dbQuestionsStr) {
-                            return dbQuestions;
                         }
                         return prev;
                     });
@@ -408,6 +425,14 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
             if (e.key === 'lcc_questions' && e.newValue) {
                 try { setQuestions(JSON.parse(e.newValue)); } catch (err) {}
             }
+            if (e.key === 'lcc_buzzer_trigger' && e.newValue) {
+                try {
+                    const payload = JSON.parse(e.newValue);
+                    if (payload.teamId) {
+                        triggerBuzzer(payload.teamId);
+                    }
+                } catch (err) {}
+            }
         };
 
         window.addEventListener('storage', handleStorageEvent);
@@ -415,7 +440,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
             clearInterval(interval);
             window.removeEventListener('storage', handleStorageEvent);
         };
-    }, []);
+    }, [isInitialLoaded]);
 
     // Live Clock
     useEffect(() => {
@@ -457,8 +482,10 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     }, [isMuted]);
 
     // Highest score calculation
-    const maxScore = Math.max(...teams.map(t => t.score));
-    const leadingTeamIds = teams.filter(t => t.score === maxScore && t.score > 0).map(t => t.id);
+    const maxScore = displayedTeams.length > 0 ? Math.max(...displayedTeams.map(t => t.score)) : 0;
+    const leadingTeamIds = maxScore > 0 
+        ? displayedTeams.filter(t => t.score === maxScore).map(t => t.id) 
+        : [];
 
     // SCORE OPERATIONS
     const updateScore = (teamId: string, delta: number, reason: string) => {
@@ -721,19 +748,6 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 // Sort questions by nomorSoal
                 importedQuestions.sort((a, b) => a.nomorSoal - b.nomorSoal);
                 
-                try {
-                    // Clear existing questions in Supabase first to match frontend replacement
-                    for (const q of questions) {
-                        await api.deleteLccQuestion(q.id);
-                    }
-                    // Insert new ones
-                    for (const q of importedQuestions) {
-                        await api.saveLccQuestion(q);
-                    }
-                } catch (dbErr) {
-                    console.error("Gagal menyimpan soal ke Supabase setelah import", dbErr);
-                }
-
                 setQuestions(importedQuestions);
                 showToast(`Berhasil mengimpor ${importedQuestions.length} soal dari Excel!`, 'success');
             } catch (err) {
@@ -766,9 +780,49 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         showToast('Bank soal LCC berhasil diexport ke Excel!', 'success');
     };
 
+    const handleSaveSingleLccQuestion = async (q: LccQuestion) => {
+        setSavingLccId(q.id);
+        try {
+            const res = await api.saveLccQuestion(q);
+            if (res.success) {
+                showToast(`Soal ${q.nomorSoal} berhasil disimpan ke database!`, 'success');
+            } else {
+                const errorDetail = res.error?.message || res.error?.details || 'Database Error';
+                showToast(`Gagal menyimpan soal ${q.nomorSoal}: ${errorDetail}`, 'error');
+            }
+        } catch (err: any) {
+            showToast(`Gagal menyimpan: ${err.message || 'Koneksi error'}`, 'error');
+        } finally {
+            setSavingLccId(null);
+        }
+    };
+
+    const updateQuestionForm = (updates: Partial<typeof questionForm>) => {
+        setQuestionForm(prev => ({ ...prev, ...updates }));
+        setIsFormSaved(false);
+    };
+
     // SAVE SINGLE QUESTION
     const handleSaveQuestion = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // If form is already saved, clicking the button triggers "Tambah Soal Baru"
+        if (isFormSaved) {
+            const maxNum = Math.max(0, ...questions.map(q => q.nomorSoal), questionForm.nomorSoal);
+            setEditingQuestionId(null);
+            setQuestionForm({
+                nomorSoal: maxNum + 1,
+                babak: config.namaBabak,
+                soal: '',
+                referensiJawaban: '',
+                poin: config.nilaiWajib,
+                kategori: 'Pengetahuan Umum'
+            });
+            setIsFormSaved(false);
+            showToast('Form dibersihkan. Siap untuk input soal baru!', 'info');
+            return;
+        }
+
         if (!questionForm.soal.trim()) {
             showToast('Isi pertanyaan / soal terlebih dahulu!', 'warning');
             return;
@@ -786,13 +840,18 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
             };
             setQuestions(prev => prev.map(q => q.id === editingQuestionId ? updatedQ : q));
             try {
-                await api.saveLccQuestion(updatedQ);
-                showToast(`Soal ${questionForm.nomorSoal} berhasil diperbarui!`, 'success');
-            } catch (err) {
+                const res = await api.saveLccQuestion(updatedQ);
+                if (res.success) {
+                    showToast(`Soal ${questionForm.nomorSoal} berhasil diperbarui di database!`, 'success');
+                    setIsFormSaved(true);
+                } else {
+                    const errorDetail = res.error?.message || res.error?.details || 'Database Error/Permission denied';
+                    showToast(`Gagal memperbarui soal di database: ${errorDetail}`, 'error');
+                }
+            } catch (err: any) {
                 console.error("Gagal memperbarui soal di database", err);
-                showToast('Gagal menyimpan perubahan ke database', 'error');
+                showToast(`Gagal menyimpan perubahan ke database: ${err.message || 'Koneksi error'}`, 'error');
             }
-            setEditingQuestionId(null);
         } else {
             const newQ: LccQuestion = {
                 id: 'q_' + Date.now(),
@@ -805,29 +864,25 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
             };
             setQuestions(prev => [...prev, newQ]);
             try {
-                await api.saveLccQuestion(newQ);
-                showToast(`Soal ${questionForm.nomorSoal} berhasil ditambahkan!`, 'success');
-            } catch (err) {
+                const res = await api.saveLccQuestion(newQ);
+                if (res.success) {
+                    showToast(`Soal ${questionForm.nomorSoal} berhasil disimpan ke database!`, 'success');
+                    setIsFormSaved(true);
+                } else {
+                    const errorDetail = res.error?.message || res.error?.details || 'Database Error/Permission denied';
+                    showToast(`Gagal menambahkan soal ke database: ${errorDetail}`, 'error');
+                }
+            } catch (err: any) {
                 console.error("Gagal menambahkan soal ke database", err);
-                showToast('Gagal menyimpan soal baru ke database', 'error');
+                showToast(`Gagal menyimpan soal baru ke database: ${err.message || 'Koneksi error'}`, 'error');
             }
         }
-
-        // Reset form for next question
-        const maxNum = Math.max(0, ...questions.map(q => q.nomorSoal), questionForm.nomorSoal);
-        setQuestionForm({
-            nomorSoal: maxNum + 1,
-            babak: config.namaBabak,
-            soal: '',
-            referensiJawaban: '',
-            poin: config.nilaiWajib,
-            kategori: 'Pengetahuan Umum'
-        });
     };
 
     // EDIT QUESTION
     const startEditQuestion = (q: LccQuestion) => {
         setEditingQuestionId(q.id);
+        setIsFormSaved(false);
         setQuestionForm({
             nomorSoal: q.nomorSoal,
             babak: q.babak,
@@ -840,43 +895,72 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     };
 
     // DELETE QUESTION
-    const handleDeleteQuestion = async (id: string) => {
-        if (confirm('Hapus soal ini dari Bank Soal?')) {
-            setQuestions(prev => prev.filter(q => q.id !== id));
-            try {
-                await api.deleteLccQuestion(id);
+    const handleDeleteQuestion = (id: string) => {
+        setDeleteConfirmQuestionId(id);
+    };
+
+    const confirmDeleteQuestion = async () => {
+        if (!deleteConfirmQuestionId) return;
+        const id = deleteConfirmQuestionId;
+        setQuestions(prev => prev.filter(q => q.id !== id));
+        try {
+            const res = await api.deleteLccQuestion(id);
+            if (res.success) {
                 showToast('Soal berhasil dihapus', 'info');
-            } catch (err) {
-                console.error("Gagal menghapus soal dari database", err);
-                showToast('Gagal menghapus soal dari database', 'error');
+            } else {
+                const errorDetail = res.error?.message || res.error?.details || 'Database Error/Permission denied';
+                showToast(`Gagal menghapus soal dari database: ${errorDetail}`, 'error');
             }
+        } catch (err: any) {
+            console.error("Gagal menghapus soal dari database", err);
+            showToast(`Gagal menghapus soal dari database: ${err.message || 'Koneksi error'}`, 'error');
         }
+        setDeleteConfirmQuestionId(null);
     };
 
     // CLEAR ALL QUESTIONS
-    const handleClearAllQuestions = async () => {
-        if (confirm('Apakah Anda yakin ingin menghapus SEMUA soal dari Bank Soal?')) {
-            const oldQuestions = [...questions];
-            setQuestions([]);
-            try {
-                for (const q of oldQuestions) {
-                    await api.deleteLccQuestion(q.id);
+    const handleClearAllQuestions = () => {
+        setShowClearAllModal(true);
+    };
+
+    const confirmClearAllQuestions = async () => {
+        setShowClearAllModal(false);
+        const oldQuestions = [...questions];
+        setQuestions([]);
+        try {
+            let failCount = 0;
+            let lastError = '';
+            for (const q of oldQuestions) {
+                const res = await api.deleteLccQuestion(q.id);
+                if (!res.success) {
+                    failCount++;
+                    lastError = res.error?.message || res.error?.details || 'Database error';
                 }
-                showToast('Semua soal telah dihapus', 'warning');
-            } catch (err) {
-                console.error("Gagal menghapus semua soal dari database", err);
-                showToast('Gagal menghapus beberapa soal dari database', 'error');
             }
+            if (failCount === 0) {
+                showToast('Semua soal telah dihapus', 'warning');
+            } else {
+                showToast(`Gagal menghapus ${failCount} soal dari database! Detail: ${lastError}`, 'error');
+            }
+        } catch (err: any) {
+            console.error("Gagal menghapus semua soal dari database", err);
+            showToast(`Gagal menghapus beberapa soal dari database: ${err.message || 'Koneksi error'}`, 'error');
         }
     };
 
     const resetScoreTeam = (teamId: string) => {
+        setResetScoreTeamId(teamId);
+    };
+
+    const confirmResetScoreTeam = () => {
+        if (!resetScoreTeamId) return;
+        const teamId = resetScoreTeamId;
         const targetTeam = teams.find(t => t.id === teamId);
-        if (!targetTeam) return;
-        if (confirm(`Riset skor untuk ${targetTeam.name} ke 0?`)) {
+        if (targetTeam) {
             setTeams(prev => prev.map(t => t.id === teamId ? { ...t, score: 0, correctCount: 0, wrongCount: 0 } : t));
             showToast(`Skor ${targetTeam.name} diriset ke 0`, 'info');
         }
+        setResetScoreTeamId(null);
     };
 
     const handleUndo = () => {
@@ -898,6 +982,49 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         }));
         setHistory(prev => prev.slice(1));
         showToast(`Undo: ${lastLog.teamName} (${lastLog.delta > 0 ? '-' : '+'}${Math.abs(lastLog.delta)})`, 'info');
+    };
+
+    const handleSaveAllSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            const resConfig = await api.saveLccConfig(config);
+            const resTeams = await api.saveLccTeams(teams);
+            if (resConfig.success && resTeams.success) {
+                showToast('Pengaturan & Daftar Regu berhasil disimpan ke database!', 'success');
+            } else {
+                const errorMsgs: string[] = [];
+                if (!resConfig.success) {
+                    errorMsgs.push(`Config: ${resConfig.error?.message || resConfig.error?.details || 'Database Error/Permission denied'}`);
+                }
+                if (!resTeams.success) {
+                    errorMsgs.push(`Regu: ${resTeams.error?.message || resTeams.error?.details || 'Database Error/Permission denied'}`);
+                }
+                showToast(`Gagal menyimpan ke database! Detail: ${errorMsgs.join(' | ')}`, 'error');
+            }
+        } catch (error: any) {
+            console.error("Error saving settings to database:", error);
+            showToast(`Terjadi kesalahan saat menyimpan pengaturan: ${error.message || 'Koneksi error'}`, 'error');
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
+
+    const handleSaveAllQuestions = async () => {
+        setIsSavingQuestions(true);
+        try {
+            const res = await api.saveLccQuestions(questions);
+            if (res.success) {
+                showToast('Semua Soal berhasil disimpan ke database!', 'success');
+            } else {
+                const errorDetail = res.error?.message || res.error?.details || 'Database Error/Permission denied';
+                showToast(`Gagal menyimpan soal ke database! Detail: ${errorDetail}`, 'error');
+            }
+        } catch (error: any) {
+            console.error("Error saving questions to database:", error);
+            showToast(`Terjadi kesalahan saat menyimpan soal: ${error.message || 'Koneksi error'}`, 'error');
+        } finally {
+            setIsSavingQuestions(false);
+        }
     };
 
     // TIMER CONTROLS
@@ -934,15 +1061,16 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     };
 
     const triggerBuzzer = (teamId: string) => {
-        if (!isBuzzerOpen || lockedTeamId) return;
+        if (lockedTeamId === teamId) return;
         setLockedTeamId(teamId);
         setIsBuzzerOpen(false);
         const timeStr = new Date().toLocaleTimeString('id-ID') + '.' + new Date().getMilliseconds().toString().padStart(3, '0');
         setLockedTime(timeStr);
+        soundFx.playBell();
         soundFx.playBuzzer();
 
         const team = teams.find(t => t.id === teamId);
-        showToast(`BUZZER! ${team?.name} menekan buzzer paling cepat!`, 'success');
+        showToast(`🔔 BUZZER! ${team?.name} menekan bel paling cepat!`, 'success');
         syncStateToOtherTabs({ isBuzzerOpen: false, lockedTeamId: teamId });
     };
 
@@ -1038,16 +1166,19 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     };
 
     const resetAllData = () => {
-        if (confirm('Apakah Anda yakin ingin meriset seluruh data LCC? (Skor, Regu, dan Riwayat akan kembali ke awal)')) {
-            setTeams(DEFAULT_TEAMS);
-            setConfig(DEFAULT_CONFIG);
-            setHistory([]);
-            setTimeLeft(DEFAULT_CONFIG.durasiTimer);
-            setIsTimerRunning(false);
-            setIsTimeout(false);
-            setLockedTeamId(null);
-            showToast('Seluruh data LCC telah diriset ke awal', 'info');
-        }
+        setShowResetAllDataModal(true);
+    };
+
+    const confirmResetAllData = () => {
+        setShowResetAllDataModal(false);
+        setTeams(DEFAULT_TEAMS);
+        setConfig(DEFAULT_CONFIG);
+        setHistory([]);
+        setTimeLeft(DEFAULT_CONFIG.durasiTimer);
+        setIsTimerRunning(false);
+        setIsTimeout(false);
+        setLockedTeamId(null);
+        showToast('Seluruh data LCC telah diriset ke awal', 'info');
     };
 
     const toggleFullscreen = () => {
@@ -1060,8 +1191,9 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
     // Render Fullscreen Presentation Scoreboard View
     if (viewMode === 'scoreboard') {
+        const isQuestionActiveOnProjector = !!(config.tampilkanSoalKeProjector && currentActiveQuestion);
         return createPortal(
-            <div className="fixed inset-0 z-[99999] bg-slate-950 text-white font-sans overflow-x-hidden overflow-y-auto flex flex-col justify-between select-none w-screen h-screen min-h-screen">
+            <div className={`fixed inset-0 z-[99999] bg-slate-950 text-white font-sans overflow-x-hidden ${isQuestionActiveOnProjector ? 'overflow-hidden' : 'overflow-y-auto'} flex flex-col justify-between select-none w-screen h-screen min-h-screen`}>
                 {/* Animated Background Gradient FX */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-indigo-950/50 to-slate-950 pointer-events-none"></div>
                 <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
@@ -1076,7 +1208,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                         )}
                         <div>
                             <h1 className="text-lg md:text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 drop-shadow-sm uppercase">
-                                SMART SCOREBOARD LCC
+                                SMART SCOREBOARD
                             </h1>
                             <p className="text-[11px] md:text-sm font-semibold text-slate-300 tracking-wide uppercase">
                                 {config.namaLomba}
@@ -1131,42 +1263,46 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 </header>
 
                 {/* MAIN CONTENT CENTER */}
-                <main className="relative z-10 flex-1 px-6 md:px-10 py-4 md:py-6 flex flex-col justify-center max-w-7xl mx-auto w-full my-auto">
+                <main className={`relative z-10 flex-1 px-6 md:px-10 flex flex-col justify-center max-w-7xl mx-auto w-full my-auto ${isQuestionActiveOnProjector ? 'py-2 gap-2' : 'py-4 md:py-6 gap-4'}`}>
                     {/* PROJECTOR QUESTION DISPLAY (IF ENABLED) */}
-                    {config.tampilkanSoalKeProjector && currentActiveQuestion && (
-                        <div className="w-full max-w-4xl mx-auto mb-4 p-4 md:p-5 bg-slate-900/90 border border-indigo-500/50 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(99,102,241,0.25)] text-center animate-fadeIn shrink-0">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                                <span className="px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-indigo-500/30 text-indigo-200 border border-indigo-500/40 uppercase tracking-widest">
+                    {isQuestionActiveOnProjector && currentActiveQuestion && (
+                        <div className="w-full max-w-4xl mx-auto mb-2 p-3 md:p-4 bg-slate-900/90 border border-indigo-500/50 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(99,102,241,0.25)] text-center animate-fadeIn shrink-0">
+                            <div className="flex items-center justify-center gap-2 mb-1.5">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-indigo-500/30 text-indigo-200 border border-indigo-500/40 uppercase tracking-widest">
                                     {currentActiveQuestion.babak || config.namaBabak}
                                 </span>
-                                <span className="px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-amber-500/30 text-amber-200 border border-amber-500/40 uppercase tracking-widest">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-amber-500/30 text-amber-200 border border-amber-500/40 uppercase tracking-widest">
                                     SOAL {currentActiveQuestion.nomorSoal}
                                 </span>
                                 {currentActiveQuestion.kategori && (
-                                    <span className="px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-slate-800 text-slate-300 border border-slate-700 uppercase tracking-widest">
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-black bg-slate-800 text-slate-300 border border-slate-700 uppercase tracking-widest">
                                         {currentActiveQuestion.kategori}
                                     </span>
                                 )}
                             </div>
-                            <p className="text-base md:text-2xl font-extrabold text-white leading-relaxed drop-shadow-sm">
+                            <p className="text-sm md:text-xl lg:text-2xl font-extrabold text-white leading-relaxed drop-shadow-sm">
                                 "{currentActiveQuestion.soal}"
                             </p>
                         </div>
                     )}
 
                     {/* TIMER & BUZZER ALERT BAR */}
-                    <div className="flex flex-col items-center justify-center mb-4 md:mb-6 shrink-0">
+                    <div className={`flex flex-col items-center justify-center shrink-0 ${isQuestionActiveOnProjector ? 'mb-2' : 'mb-4 md:mb-6'}`}>
                         {/* BIG TIMER DISPLAY */}
                         <div className="relative flex items-center justify-center">
-                            <div className={`px-8 md:px-12 py-2 md:py-3 rounded-2xl border-2 backdrop-blur-xl transition-all flex items-center gap-3 md:gap-4 ${
+                            <div className={`transition-all flex items-center gap-3 md:gap-4 ${
+                                isQuestionActiveOnProjector 
+                                    ? 'px-6 py-1.5 rounded-xl border-2 backdrop-blur-xl' 
+                                    : 'px-8 md:px-12 py-2 md:py-3 rounded-2xl border-2 backdrop-blur-xl'
+                            } ${
                                 isTimeout 
                                     ? 'bg-rose-950/80 border-rose-500 text-rose-400 shadow-[0_0_50px_rgba(244,63,94,0.6)] animate-bounce' 
                                     : isTimerRunning 
                                     ? 'bg-slate-900/80 border-indigo-500/60 text-white shadow-[0_0_30px_rgba(99,102,241,0.3)]' 
                                     : 'bg-slate-900/60 border-slate-800 text-slate-400'
                             }`}>
-                                <Clock size={32} className={isTimerRunning ? "animate-spin text-indigo-400" : isTimeout ? "text-rose-500" : "text-slate-500"} />
-                                <div className="font-mono text-4xl md:text-6xl font-black tracking-widest drop-shadow-md">
+                                <Clock size={isQuestionActiveOnProjector ? 24 : 32} className={isTimerRunning ? "animate-spin text-indigo-400" : isTimeout ? "text-rose-500" : "text-slate-500"} />
+                                <div className={`font-mono font-black tracking-widest drop-shadow-md ${isQuestionActiveOnProjector ? 'text-2xl md:text-4xl' : 'text-4xl md:text-6xl'}`}>
                                     {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
                                 </div>
                             </div>
@@ -1174,27 +1310,27 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
                         {/* BUZZER STATUS ALERT */}
                         {isBuzzerOpen && (
-                            <div className="mt-2.5 px-6 py-1.5 bg-emerald-500/20 border border-emerald-500/50 rounded-full text-emerald-300 font-extrabold text-xs md:text-sm uppercase tracking-widest animate-pulse flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                                <Radio size={16} className="animate-ping"/> BUZZER TERBUKA! TEKAN BUZZER SEKARANG!
+                            <div className="mt-1.5 px-5 py-1 bg-emerald-500/20 border border-emerald-500/50 rounded-full text-emerald-300 font-extrabold text-[10px] md:text-xs uppercase tracking-widest animate-pulse flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                                <Radio size={14} className="animate-ping"/> BUZZER TERBUKA! TEKAN BUZZER SEKARANG!
                             </div>
                         )}
 
                         {lockedTeamId && (
-                            <div className="mt-2.5 px-6 md:px-8 py-1.5 md:py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-base md:text-xl rounded-full shadow-[0_0_30px_rgba(245,158,11,0.6)] animate-bounce flex items-center gap-2.5 border-2 border-yellow-200">
-                                <Zap size={22} className="fill-current text-yellow-200"/> 
+                            <div className="mt-1.5 px-5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs md:text-base rounded-full shadow-[0_0_30px_rgba(245,158,11,0.6)] animate-bounce flex items-center gap-2 border-2 border-yellow-200">
+                                <Zap size={16} className="fill-current text-yellow-200"/> 
                                 {teams.find(t => t.id === lockedTeamId)?.name} MENEKAN BUZZER TERCEPAT!
                             </div>
                         )}
                     </div>
 
                     {/* TEAM CARDS CONTAINER (2 to 5 columns responsive) */}
-                    <div className={`grid gap-4 md:gap-6 items-stretch my-auto w-full ${
-                        teams.length === 2 ? 'grid-cols-2 max-w-4xl mx-auto' :
-                        teams.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
-                        teams.length === 4 ? 'grid-cols-2 md:grid-cols-4' :
+                    <div className={`grid gap-3 md:gap-4 items-stretch my-auto w-full ${
+                        displayedTeams.length === 2 ? 'grid-cols-2 max-w-4xl mx-auto' :
+                        displayedTeams.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
+                        displayedTeams.length === 4 ? 'grid-cols-2 md:grid-cols-4' :
                         'grid-cols-2 md:grid-cols-5'
                     }`}>
-                        {teams.map((team) => {
+                        {displayedTeams.map((team) => {
                             const isLeading = leadingTeamIds.includes(team.id);
                             const isLocked = lockedTeamId === team.id;
                             const anims = floatingAnims.filter(a => a.teamId === team.id);
@@ -1203,13 +1339,15 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                 <div 
                                     key={team.id}
                                     style={{ borderColor: team.color }}
-                                    className={`relative rounded-3xl p-4 md:p-6 flex flex-col justify-between transition-all duration-300 border-2 backdrop-blur-xl ${
+                                    className={`relative flex flex-col justify-between transition-all duration-300 border-2 backdrop-blur-xl ${
+                                        isQuestionActiveOnProjector ? 'rounded-2xl p-3 md:p-4' : 'rounded-3xl p-4 md:p-6'
+                                    } ${
                                         shakingTeamId === team.id ? 'animate-shake' : ''
                                     } ${
-                                        isLeading 
+                                        isLocked
+                                            ? 'bg-gradient-to-b from-amber-500/40 via-orange-600/50 to-slate-900 border-4 border-amber-400 ring-8 ring-amber-400/50 shadow-[0_0_90px_rgba(251,191,36,1)] scale-[1.04] z-30 animate-pulse'
+                                            : isLeading 
                                             ? 'bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-900/90 shadow-[0_0_40px_rgba(251,191,36,0.35)] border-amber-400 scale-[1.02] md:scale-[1.03] z-20' 
-                                            : isLocked
-                                            ? 'bg-gradient-to-b from-orange-950/40 via-slate-900/90 to-slate-900/90 shadow-[0_0_40px_rgba(249,115,22,0.4)] border-orange-500 scale-[1.01] md:scale-[1.02] z-20'
                                             : 'bg-slate-900/60 border-slate-800 shadow-xl'
                                     }`}
                                 >
@@ -1225,34 +1363,53 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         </div>
                                     ))}
 
+                                    {/* BUZZER LOCK BLINKING BADGE */}
+                                    {isLocked && (
+                                        <div className={`absolute left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 rounded-full font-black tracking-wider flex items-center gap-1.5 shadow-[0_0_30px_rgba(251,191,36,1)] border-2 border-white uppercase animate-bounce z-40 ${
+                                            isQuestionActiveOnProjector ? '-top-3 px-3 py-0.5 text-[9px]' : '-top-5 px-4 py-1.5 text-xs'
+                                        }`}>
+                                            <Zap size={isQuestionActiveOnProjector ? 11 : 15} className="fill-current text-slate-950 animate-pulse"/> 🔔 BUZZER TERCEPAT!
+                                        </div>
+                                    )}
+
                                     {/* HIGHEST SCORE / LEADER CROWN BADGE */}
                                     {isLeading && (
-                                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-4 py-1 rounded-full font-black text-xs tracking-wider flex items-center gap-1.5 shadow-lg border border-yellow-200 uppercase animate-pulse">
-                                            <Trophy size={14} className="fill-current text-slate-950"/> SKOR HIGHEST
+                                        <div className={`absolute left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 rounded-full font-black tracking-wider flex items-center gap-1.5 shadow-lg border border-yellow-200 uppercase animate-pulse ${
+                                            isQuestionActiveOnProjector ? '-top-3 px-3 py-0.5 text-[9px]' : '-top-5 px-4 py-1 text-xs'
+                                        }`}>
+                                            <Trophy size={isQuestionActiveOnProjector ? 10 : 14} className="fill-current text-slate-950"/> SKOR HIGHEST
                                         </div>
                                     )}
 
                                     {/* CARD HEADER */}
                                     <div className="text-center pt-2">
-                                        <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-2 md:mb-3 rounded-2xl bg-white/10 p-2 border border-white/20 flex items-center justify-center overflow-hidden shadow-inner">
+                                        <div className={`mx-auto mb-2 rounded-2xl bg-white/10 p-2 border border-white/20 flex items-center justify-center overflow-hidden shadow-inner ${
+                                            isQuestionActiveOnProjector ? 'w-10 h-10' : 'w-14 h-14 md:w-16 md:h-16'
+                                        }`}>
                                             {team.logo ? (
                                                 <img src={team.logo} alt={team.name} className="w-full h-full object-contain" />
                                             ) : (
-                                                <Users size={32} style={{ color: team.color }} />
+                                                <Users size={isQuestionActiveOnProjector ? 20 : 32} style={{ color: team.color }} />
                                             )}
                                         </div>
-                                        <h2 className="text-lg md:text-2xl font-black tracking-tight text-white uppercase drop-shadow-sm" style={{ color: team.color }}>
+                                        <h2 className={`font-black tracking-tight text-white uppercase drop-shadow-sm ${
+                                            isQuestionActiveOnProjector ? 'text-base md:text-lg' : 'text-lg md:text-2xl'
+                                        }`} style={{ color: team.color }}>
                                             {team.name}
                                         </h2>
-                                        <p className="text-xs font-semibold text-slate-400 truncate mt-0.5">
-                                            {team.school || '-'}
+                                        <p className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">
+                                            {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
                                         </p>
                                     </div>
 
                                     {/* DIGITAL SCORE DISPLAY */}
-                                    <div className="my-4 md:my-6 text-center">
-                                        <div className="inline-block bg-slate-950/80 px-4 md:px-6 py-3 md:py-4 rounded-2xl border border-slate-800 shadow-inner w-full">
-                                            <span className={`font-mono font-black text-4xl md:text-6xl lg:text-7xl tracking-wider leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] ${
+                                    <div className={`text-center ${isQuestionActiveOnProjector ? 'my-2' : 'my-4 md:my-6'}`}>
+                                        <div className={`inline-block bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner w-full ${
+                                            isQuestionActiveOnProjector ? 'px-3 py-1.5' : 'px-4 md:px-6 py-3 md:py-4'
+                                        }`}>
+                                            <span className={`font-mono font-black tracking-wider leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] ${
+                                                isQuestionActiveOnProjector ? 'text-3xl md:text-4xl lg:text-5xl' : 'text-4xl md:text-6xl lg:text-7xl'
+                                            } ${
                                                 team.score < 0 ? 'text-rose-500' : 'text-white'
                                             }`}>
                                                 {team.score}
@@ -1261,12 +1418,12 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     </div>
 
                                     {/* STATS FOOTER */}
-                                    <div className="flex justify-around items-center pt-3 border-t border-slate-800/80 text-xs font-bold text-slate-400">
+                                    <div className="flex justify-around items-center pt-2 border-t border-slate-800/80 text-[10px] md:text-xs font-bold text-slate-400">
                                         <div className="flex items-center gap-1 text-emerald-400">
-                                            <CheckCircle2 size={14}/> {team.correctCount}
+                                            <CheckCircle2 size={isQuestionActiveOnProjector ? 12 : 14}/> {team.correctCount}
                                         </div>
                                         <div className="flex items-center gap-1 text-rose-400">
-                                            <XCircle size={14}/> {team.wrongCount}
+                                            <XCircle size={isQuestionActiveOnProjector ? 12 : 14}/> {team.wrongCount}
                                         </div>
                                     </div>
                                 </div>
@@ -1378,30 +1535,54 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 </div>
 
                 {/* OPERATOR TABS */}
-                <div className="max-w-7xl mx-auto px-4 flex border-t border-slate-100 gap-2 overflow-x-auto">
-                    {[
-                        { id: 'control', label: 'Panel Kontrol Utama', icon: Trophy },
-                        { id: 'soal', label: 'Bank Soal & Referensi Jawaban', icon: BookOpen },
-                        { id: 'settings', label: 'Pengaturan Lomba & Nilai', icon: Settings },
-                        { id: 'history', label: 'Riwayat Skor Log', icon: History },
-                        { id: 'export', label: 'Export & Backup', icon: Download },
-                    ].map(tab => {
-                        const Icon = tab.icon;
-                        const active = activeTabOperator === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTabOperator(tab.id as any)}
-                                className={`py-3 px-4 font-bold text-xs border-b-2 flex items-center gap-2 transition whitespace-nowrap ${
-                                    active 
-                                        ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50' 
-                                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                                }`}
-                            >
-                                <Icon size={16}/> {tab.label}
-                            </button>
-                        );
-                    })}
+                <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-stretch md:items-center justify-between border-t border-slate-100 gap-2">
+                    <div className="flex gap-2 overflow-x-auto py-1 md:py-0">
+                        {[
+                            { id: 'control', label: 'Panel Kontrol Utama', icon: Trophy },
+                            { id: 'soal', label: 'Bank Soal & Referensi Jawaban', icon: BookOpen },
+                            { id: 'settings', label: 'Pengaturan Lomba & Nilai', icon: Settings },
+                            { id: 'history', label: 'Riwayat Skor Log', icon: History },
+                            { id: 'export', label: 'Export & Backup', icon: Download },
+                        ].map(tab => {
+                            const Icon = tab.icon;
+                            const active = activeTabOperator === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTabOperator(tab.id as any)}
+                                    className={`py-3 px-4 font-bold text-xs border-b-2 flex items-center gap-2 transition whitespace-nowrap ${
+                                        active 
+                                            ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50' 
+                                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                                    }`}
+                                >
+                                    <Icon size={16}/> {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Gugus / Cluster Filter Dropdown */}
+                    <div className="py-2 md:py-0 flex items-center justify-between md:justify-end gap-2 border-t md:border-t-0 border-slate-100">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap flex items-center gap-1">
+                            <Users size={12} className="text-indigo-500"/> FILTER AKTIF GUGUS:
+                        </label>
+                        <select
+                            value={activeGugus}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setConfig(prev => ({ ...prev, activeGugus: val }));
+                            }}
+                            className="p-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer min-w-[150px] transition"
+                        >
+                            <option value="all">Semua Gugus ({teams.length} Regu)</option>
+                            {availableGugus.map(gug => (
+                                <option key={gug} value={gug}>
+                                    {gug} ({teams.filter(t => getTeamGugus(t).toLowerCase() === gug.toLowerCase()).length} Regu)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -1441,26 +1622,6 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
                                 {/* Question Selector Dropdown & Nav Buttons */}
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <select
-                                        value={config.nomorSoal}
-                                        onChange={e => {
-                                            const num = parseInt(e.target.value);
-                                            setConfig(prev => ({ ...prev, nomorSoal: num }));
-                                            setIsQuestionCardOpen(true);
-                                        }}
-                                        className="p-2 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs font-bold outline-none cursor-pointer max-w-[220px] truncate"
-                                    >
-                                        {questions.length > 0 ? (
-                                            questions.map(q => (
-                                                <option key={q.id} value={q.nomorSoal}>
-                                                    Soal {q.nomorSoal}: {q.soal.substring(0, 30)}...
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <option value={config.nomorSoal}>Soal {config.nomorSoal}</option>
-                                        )}
-                                    </select>
-
                                     <button
                                         onClick={() => {
                                             const prevNum = Math.max(1, config.nomorSoal - 1);
@@ -1536,7 +1697,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
                                             <span className="text-xs font-bold text-slate-300">Pemberian Skor Langsung Soal {config.nomorSoal}:</span>
                                             <div className="flex gap-2 flex-wrap">
-                                                {teams.map(t => (
+                                                {displayedTeams.map(t => (
                                                     <div key={t.id} className="flex items-center gap-1 bg-slate-800 p-1 px-2.5 rounded-lg border border-slate-700">
                                                         <span className="text-xs font-bold mr-1" style={{ color: t.color }}>{t.name}:</span>
                                                         <button
@@ -1706,7 +1867,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                 <div className="border-t border-slate-100 pt-3">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Simulasi Tekan Buzzer (Operator/Keyboard 1-5):</label>
                                     <div className="flex gap-2 flex-wrap">
-                                        {teams.map((t, idx) => (
+                                        {displayedTeams.map((t, idx) => (
                                             <button
                                                 key={t.id}
                                                 onClick={() => triggerBuzzer(t.id)}
@@ -1735,8 +1896,8 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                             className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-bold bg-slate-50 outline-none"
                                         >
                                             <option value="">-- Pilih Regu Utama --</option>
-                                            {teams.map(t => (
-                                                <option key={t.id} value={t.id}>{t.name} ({t.school})</option>
+                                            {displayedTeams.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name} ({getTeamSchoolOnly(t) || t.school})</option>
                                             ))}
                                         </select>
                                     </div>
@@ -1745,7 +1906,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         <div className="space-y-2 pt-2 border-t border-slate-100">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block">2. Lempar Soal Ke Regu Lain:</label>
                                             <div className="grid grid-cols-1 gap-2">
-                                                {teams.filter(t => t.id !== failingTeamId).map(destTeam => (
+                                                {displayedTeams.filter(t => t.id !== failingTeamId).map(destTeam => (
                                                     <div key={destTeam.id} className="p-3 bg-purple-50/60 border border-purple-100 rounded-xl flex items-center justify-between">
                                                         <span className="font-bold text-xs text-purple-900">{destTeam.name}</span>
                                                         <div className="flex gap-1">
@@ -1819,7 +1980,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
                             {/* PANEL SKOR REGU CARDS */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {teams.map((team) => (
+                                {displayedTeams.map((team) => (
                                     <div 
                                         key={team.id}
                                         style={{ borderTopColor: team.color }}
@@ -1831,7 +1992,9 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                 <h3 className="font-black text-lg text-slate-800" style={{ color: team.color }}>
                                                     {team.name}
                                                 </h3>
-                                                <p className="text-xs font-semibold text-slate-400 truncate">{team.school || '-'}</p>
+                                                <p className="text-xs font-semibold text-slate-400 truncate">
+                                                    {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
+                                                </p>
                                             </div>
                                             <button 
                                                 onClick={() => resetScoreTeam(team.id)} 
@@ -1927,6 +2090,35 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                 {activeTabOperator === 'soal' && (
                     <div className="space-y-6">
 
+                        {/* ACTION BAR: SAVE TO DATABASE */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-4">
+                            <div className="flex-1 min-w-[280px]">
+                                <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
+                                    <Save size={18} className="text-indigo-600"/> SIMPAN BANK SOAL KE DATABASE
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    Simpan seluruh daftar soal LCC yang ada di bawah ini secara permanen ke database utama agar dapat diakses di sesi/perangkat lain.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleSaveAllQuestions}
+                                disabled={isSavingQuestions}
+                                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:from-slate-400 disabled:to-slate-500 text-white font-black text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-indigo-100"
+                            >
+                                {isSavingQuestions ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Menyimpan ke DB...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={16} />
+                                        Simpan Bank Soal
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
                         {/* TOP ACTION BAR: EXCEL IMPORT, EXPORT, TEMPLATE DOWNLOAD */}
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
                             <div>
@@ -1986,9 +2178,10 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <button
                                         type="button"
                                         onClick={() => {
+                                            const maxNum = questions.length > 0 ? Math.max(0, ...questions.map(q => q.nomorSoal || 0)) : 0;
                                             setEditingQuestionId(null);
                                             setQuestionForm({
-                                                nomorSoal: questions.length + 1,
+                                                nomorSoal: maxNum + 1,
                                                 babak: config.namaBabak,
                                                 soal: '',
                                                 referensiJawaban: '',
@@ -2010,7 +2203,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         type="number"
                                         min={1}
                                         value={questionForm.nomorSoal}
-                                        onChange={e => setQuestionForm({ ...questionForm, nomorSoal: parseInt(e.target.value) || 1 })}
+                                        onChange={e => updateQuestionForm({ nomorSoal: parseInt(e.target.value) || 1 })}
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
                                     />
                                 </div>
@@ -2019,7 +2212,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Babak / Sesi (Deteksi Otomatis Konfigurasi)</label>
                                     <select
                                         value={questionForm.babak}
-                                        onChange={e => setQuestionForm({ ...questionForm, babak: e.target.value })}
+                                        onChange={e => updateQuestionForm({ babak: e.target.value })}
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
                                     >
                                         <option value={config.namaBabak}>{config.namaBabak} (Konfigurasi Utama)</option>
@@ -2041,7 +2234,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         type="text"
                                         placeholder="Kategori / Mapel"
                                         value={questionForm.kategori}
-                                        onChange={e => setQuestionForm({ ...questionForm, kategori: e.target.value })}
+                                        onChange={e => updateQuestionForm({ kategori: e.target.value })}
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
                                     />
                                 </div>
@@ -2051,7 +2244,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <input
                                         type="number"
                                         value={questionForm.poin}
-                                        onChange={e => setQuestionForm({ ...questionForm, poin: parseInt(e.target.value) || 100 })}
+                                        onChange={e => updateQuestionForm({ poin: parseInt(e.target.value) || 100 })}
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
                                     />
                                 </div>
@@ -2064,7 +2257,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         rows={3}
                                         placeholder="Pertanyaan / Teks Soal"
                                         value={questionForm.soal}
-                                        onChange={e => setQuestionForm({ ...questionForm, soal: e.target.value })}
+                                        onChange={e => updateQuestionForm({ soal: e.target.value })}
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500"
                                     />
                                 </div>
@@ -2075,7 +2268,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         rows={3}
                                         placeholder="Referensi / Kunci Jawaban"
                                         value={questionForm.referensiJawaban}
-                                        onChange={e => setQuestionForm({ ...questionForm, referensiJawaban: e.target.value })}
+                                        onChange={e => updateQuestionForm({ referensiJawaban: e.target.value })}
                                         className="w-full p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 outline-none focus:border-emerald-500"
                                     />
                                 </div>
@@ -2084,9 +2277,21 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                             <div className="flex justify-end pt-2">
                                 <button
                                     type="submit"
-                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition shadow-md flex items-center gap-2 active:scale-95 cursor-pointer"
+                                    className={`px-5 py-2.5 font-extrabold text-xs rounded-xl transition shadow-md flex items-center gap-2 active:scale-95 cursor-pointer text-white ${
+                                        isFormSaved 
+                                            ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' 
+                                            : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+                                    }`}
                                 >
-                                    <Plus size={16}/> {editingQuestionId ? 'Simpan Perubahan Soal' : 'Tambahkan Ke Bank Soal'}
+                                    {isFormSaved ? (
+                                        <>
+                                            <Plus size={16}/> Tambah Soal
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={16}/> {editingQuestionId ? 'Simpan Perubahan Soal' : 'Simpan Soal'}
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -2179,6 +2384,15 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                                         Buka
                                                                     </button>
                                                                     <button
+                                                                        onClick={() => handleSaveSingleLccQuestion(q)}
+                                                                        disabled={savingLccId === q.id}
+                                                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition font-bold text-[10px] flex items-center gap-1 disabled:opacity-50"
+                                                                        title="Simpan Soal Ini ke Database"
+                                                                    >
+                                                                        {savingLccId === q.id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                                                        <span>Simpan</span>
+                                                                    </button>
+                                                                    <button
                                                                         onClick={() => startEditQuestion(q)}
                                                                         className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
                                                                         title="Edit Soal"
@@ -2208,7 +2422,37 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
 
                 {/* ==================== TAB 2: PENGATURAN LOMBA & NILAI ==================== */}
                 {activeTabOperator === 'settings' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-6">
+                        {/* ACTION BAR: SAVE TO DATABASE */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-4">
+                            <div className="flex-1 min-w-[280px]">
+                                <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
+                                    <Save size={18} className="text-emerald-600"/> SIMPAN PENGATURAN KE DATABASE
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    Simpan semua perubahan pada informasi lomba, daftar regu peserta, dan aturan nilai secara permanen ke database utama.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleSaveAllSettings}
+                                disabled={isSavingSettings}
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:from-slate-400 disabled:to-slate-500 text-white font-black text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-emerald-100"
+                            >
+                                {isSavingSettings ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Menyimpan ke DB...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={16} />
+                                        Simpan Pengaturan
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                         {/* PANEL A: PENGATURAN LOMBA & REGUS */}
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -2350,7 +2594,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-3 gap-2">
                                             <div>
                                                 <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Nama Regu</label>
                                                 <input 
@@ -2364,14 +2608,31 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                 />
                                             </div>
                                             <div>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Nama Gugus</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Gugus..."
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none"
+                                                    value={getTeamGugus(t)}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        const currentSchool = getTeamSchoolOnly(t);
+                                                        const updatedSchoolValue = val ? `${val} | ${currentSchool}` : currentSchool;
+                                                        setTeams(prev => prev.map(item => item.id === t.id ? { ...item, school: updatedSchoolValue } : item));
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
                                                 <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Asal Sekolah</label>
                                                 <input 
                                                     type="text" 
                                                     className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                                                    value={t.school}
+                                                    value={getTeamSchoolOnly(t)}
                                                     onChange={e => {
                                                         const val = e.target.value;
-                                                        setTeams(prev => prev.map(item => item.id === t.id ? { ...item, school: val } : item));
+                                                        const currentGugus = getTeamGugus(t);
+                                                        const updatedSchoolValue = currentGugus ? `${currentGugus} | ${val}` : val;
+                                                        setTeams(prev => prev.map(item => item.id === t.id ? { ...item, school: updatedSchoolValue } : item));
                                                     }}
                                                 />
                                             </div>
@@ -2505,7 +2766,8 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                         </div>
 
                     </div>
-                )}
+                </div>
+            )}
 
                 {/* ==================== TAB 3: RIWAYAT SKOR LOG ==================== */}
                 {activeTabOperator === 'history' && (
@@ -2747,6 +3009,54 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     </div>
                 </div>
             )}
+
+            {/* Modal Konfirmasi Hapus Soal LCC */}
+            <ConfirmationModal
+                isOpen={deleteConfirmQuestionId !== null}
+                onClose={() => setDeleteConfirmQuestionId(null)}
+                onConfirm={confirmDeleteQuestion}
+                title="Hapus Soal"
+                message="Apakah Anda yakin ingin menghapus soal ini dari Bank Soal? Soal yang dihapus tidak dapat dikembalikan."
+                confirmText="Hapus"
+                cancelText="Batal"
+                type="danger"
+            />
+
+            {/* Modal Konfirmasi Hapus Semua Soal LCC */}
+            <ConfirmationModal
+                isOpen={showClearAllModal}
+                onClose={() => setShowClearAllModal(false)}
+                onConfirm={confirmClearAllQuestions}
+                title="Hapus Semua Soal"
+                message="Apakah Anda yakin ingin menghapus SEMUA soal dari Bank Soal? Seluruh soal di daftar akan dihapus secara permanen."
+                confirmText="Hapus Semua"
+                cancelText="Batal"
+                type="danger"
+            />
+
+            {/* Modal Konfirmasi Reset Skor Regu */}
+            <ConfirmationModal
+                isOpen={resetScoreTeamId !== null}
+                onClose={() => setResetScoreTeamId(null)}
+                onConfirm={confirmResetScoreTeam}
+                title="Reset Skor Regu"
+                message={`Apakah Anda yakin ingin meriset skor regu ${teams.find(t => t.id === resetScoreTeamId)?.name || ''} menjadi 0?`}
+                confirmText="Reset Skor"
+                cancelText="Batal"
+                type="warning"
+            />
+
+            {/* Modal Konfirmasi Reset Seluruh Data LCC */}
+            <ConfirmationModal
+                isOpen={showResetAllDataModal}
+                onClose={() => setShowResetAllDataModal(false)}
+                onConfirm={confirmResetAllData}
+                title="Reset Seluruh Data LCC"
+                message="Apakah Anda yakin ingin meriset seluruh data LCC? (Skor, Regu, dan Riwayat akan kembali ke kondisi awal)"
+                confirmText="Reset Seluruh Data"
+                cancelText="Batal"
+                type="danger"
+            />
         </div>
     );
 };

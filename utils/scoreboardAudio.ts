@@ -100,6 +100,39 @@ class SoundEffects {
         osc.stop(now + 0.6);
     }
 
+    public playBell() {
+        if (this.isMuted) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        // Bell ring harmonics: Fundamental, overtone 1, overtone 2
+        const harmonics = [
+            { freq: 1046.50, gain: 0.5, duration: 1.2 }, // C6 fundamental
+            { freq: 2093.00, gain: 0.3, duration: 0.8 }, // C7 1st octave overtone
+            { freq: 3135.96, gain: 0.15, duration: 0.5 }, // G7 5th overtone
+        ];
+
+        harmonics.forEach(h => {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gainNode = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(h.freq, now);
+
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(h.gain, now + 0.005); // ultra-fast attack 5ms
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + h.duration); // smooth bell decay
+
+            osc.connect(gainNode);
+            gainNode.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + h.duration);
+        });
+    }
+
     public playTimeout() {
         if (this.isMuted) return;
         this.initContext();

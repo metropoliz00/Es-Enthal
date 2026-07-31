@@ -19,6 +19,42 @@ const formatGoogleDriveUrl = (url?: string): string | undefined => {
     return url;
 };
 
+// Helper to generate a valid, deterministic UUID v4 string from any text key
+const stringToUuid = (str: string): string => {
+    if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str)) {
+        return str;
+    }
+    let hash1 = 0, hash2 = 0;
+    for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        hash1 = (hash1 << 5) - hash1 + ch;
+        hash1 |= 0;
+        hash2 = (hash2 << 7) - hash2 + ch;
+        hash2 |= 0;
+    }
+    const h1 = Math.abs(hash1).toString(16).padStart(8, '0').slice(0, 8);
+    const h2 = Math.abs(hash2).toString(16).padStart(12, '0').slice(0, 12);
+    return `${h1}-4b3a-8c9d-a123-${h2}`;
+};
+
+// Helper to ensure exam entry exists in exams table so FK questions_exam_id_fkey is satisfied
+const ensureExamExists = async (subject: string): Promise<string> => {
+    const examId = stringToUuid(subject);
+    try {
+        await supabase.from('exams').upsert({
+            id: examId,
+            nama_ujian: subject,
+            waktu_mulai: new Date().toISOString(),
+            token_akses: '123456',
+            durasi: 60,
+            is_active: true
+        });
+    } catch (e) {
+        console.error("Error in ensureExamExists:", e);
+    }
+    return examId;
+};
+
 export const api = {
   login: async (username: string, password?: string): Promise<{user: User | null, error?: string}> => {
     console.log("Attempting login for:", username);
@@ -229,7 +265,8 @@ export const api = {
   },
 
   getQuestions: async (subject: string): Promise<QuestionWithOptions[]> => {
-    const { data, error } = await supabase.from('questions').select('*, options(*)').eq('exam_id', subject);
+    const examId = stringToUuid(subject);
+    const { data, error } = await supabase.from('questions').select('*, options(*)').eq('exam_id', examId);
     if (error || !data) return [];
 
     return data.map((q: any) => ({
@@ -243,7 +280,7 @@ export const api = {
         tp_id: q.tp_id, 
         caption: q.caption,
         jenis_ujian: q.jenis_ujian,
-        options: q.options.map((o: any) => ({
+        options: (q.options || []).map((o: any) => ({
             id: o.id,
             question_id: o.question_id,
             text_jawaban: o.text_jawaban,
@@ -253,26 +290,155 @@ export const api = {
   },
 
   getRawQuestions: async (subject: string): Promise<QuestionRow[]> => {
-      const { data, error } = await supabase.from('questions').select('*, options(*)').eq('exam_id', subject);
+      const examId = stringToUuid(subject);
+      const { data, error } = await supabase.from('questions').select('*, options(*)').eq('exam_id', examId);
       if (error || !data) return [];
-      // This needs to map to QuestionRow, which is a flat structure.
-      // This might be tricky. I'll leave it as is for now, assuming the DB structure matches.
-      return data as any;
+
+      return data.map((q: any) => {
+          const options = q.options || [];
+          const sortedOptions = [...options].sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''));
+          
+          const opsi_a = sortedOptions[0]?.text_jawaban || '';
+          const opsi_b = sortedOptions[1]?.text_jawaban || '';
+          const opsi_c = sortedOptions[2]?.text_jawaban || '';
+          const opsi_d = sortedOptions[3]?.text_jawaban || '';
+
+          const keys: string[] = [];
+          if (sortedOptions[0]?.is_correct) keys.push('A');
+          if (sortedOptions[1]?.is_correct) keys.push('B');
+          if (sortedOptions[2]?.is_correct) keys.push('C');
+          if (sortedOptions[3]?.is_correct) keys.push('D');
+
+          return {
+              id: q.id,
+              text_soal: q.text_soal || '',
+              tipe_soal: q.tipe_soal || 'PG',
+              gambar: q.gambar || '',
+              caption: q.caption || '',
+              opsi_a,
+              opsi_b,
+              opsi_c,
+              opsi_d,
+              kunci_jawaban: keys.join(','),
+              bobot: q.bobot_nilai ?? 10,
+              kelas: q.kelas || '',
+              tp_id: q.tp_id || '',
+              jenis_ujian: q.jenis_ujian || '',
+              kode_paket: ''
+          };
+      });
   },
   
   saveQuestion: async (subject: string, data: QuestionRow): Promise<{success: boolean, message: string}> => {
-      const { error } = await supabase.from('questions').upsert(data);
-      return { success: !error, message: error?.message || 'Success' };
+      try {
+          const examId = await ensureExamExists(subject);
+          const qId = stringToUuid(data.id ? (data.id.includes('-') ? data.id : `${subject}_${data.id}`) : `${subject}_q_${Date.now()}`);
+
+          const { error: qError } = await supabase.from('questions').upsert({
+              id: qId,
+              exam_id: examId,
+              text_soal: data.text_soal || '',
+              tipe_soal: data.tipe_soal || 'PG',
+              bobot_nilai: Number(data.bobot) || 10,
+              gambar: data.gambar || null,
+              caption: data.caption || null,
+              kelas: data.kelas || null,
+              tp_id: data.tp_id || null
+          });
+
+          if (qError) {
+              console.error("Error saving question:", qError);
+              return { success: false, message: qError.message };
+          }
+
+          // Save options
+          await supabase.from('options').delete().eq('question_id', qId);
+          const keys = (data.kunci_jawaban || '').toUpperCase();
+          const optionsToInsert = [
+              { question_id: qId, text_jawaban: data.opsi_a || '', is_correct: keys.includes('A') },
+              { question_id: qId, text_jawaban: data.opsi_b || '', is_correct: keys.includes('B') },
+              { question_id: qId, text_jawaban: data.opsi_c || '', is_correct: keys.includes('C') },
+              { question_id: qId, text_jawaban: data.opsi_d || '', is_correct: keys.includes('D') }
+          ].filter(opt => opt.text_jawaban.trim().length > 0 || opt.is_correct);
+
+          if (optionsToInsert.length > 0) {
+              const { error: optError } = await supabase.from('options').insert(optionsToInsert);
+              if (optError) {
+                  console.error("Error saving question options:", optError);
+              }
+          }
+
+          return { success: true, message: 'Success' };
+      } catch (err: any) {
+          console.error("Error in saveQuestion:", err);
+          return { success: false, message: err.message || 'Error saving question' };
+      }
   },
 
-  importQuestions: async (subject: string, data: QuestionRow[]): Promise<{success: boolean, message: string}> => {
-      const { error } = await supabase.from('questions').upsert(data);
-      return { success: !error, message: error?.message || 'Success' };
+  importQuestions: async (subject: string, questions: QuestionRow[]): Promise<{success: boolean, message: string}> => {
+      try {
+          const examId = await ensureExamExists(subject);
+          
+          for (const data of questions) {
+              const qId = stringToUuid(data.id ? (data.id.includes('-') ? data.id : `${subject}_${data.id}`) : `${subject}_q_${Date.now()}_${Math.random()}`);
+
+              const { error: qError } = await supabase.from('questions').upsert({
+                  id: qId,
+                  exam_id: examId,
+                  text_soal: data.text_soal || '',
+                  tipe_soal: data.tipe_soal || 'PG',
+                  bobot_nilai: Number(data.bobot) || 10,
+                  gambar: data.gambar || null,
+                  caption: data.caption || null,
+                  kelas: data.kelas || null,
+                  tp_id: data.tp_id || null
+              });
+
+              if (qError) {
+                  console.error("Error importing question item:", qError);
+                  continue;
+              }
+
+              await supabase.from('options').delete().eq('question_id', qId);
+              const keys = (data.kunci_jawaban || '').toUpperCase();
+              const optionsToInsert = [
+                  { question_id: qId, text_jawaban: data.opsi_a || '', is_correct: keys.includes('A') },
+                  { question_id: qId, text_jawaban: data.opsi_b || '', is_correct: keys.includes('B') },
+                  { question_id: qId, text_jawaban: data.opsi_c || '', is_correct: keys.includes('C') },
+                  { question_id: qId, text_jawaban: data.opsi_d || '', is_correct: keys.includes('D') }
+              ].filter(opt => opt.text_jawaban.trim().length > 0 || opt.is_correct);
+
+              if (optionsToInsert.length > 0) {
+                  await supabase.from('options').insert(optionsToInsert);
+              }
+          }
+
+          return { success: true, message: 'Success' };
+      } catch (err: any) {
+          console.error("Error in importQuestions:", err);
+          return { success: false, message: err.message || 'Error importing questions' };
+      }
   },
 
   deleteQuestion: async (subject: string, id: string): Promise<{success: boolean, message: string}> => {
-      const { error } = await supabase.from('questions').delete().eq('id', id);
-      return { success: !error, message: error?.message || 'Success' };
+      try {
+          const qId = stringToUuid(id.includes('-') ? id : `${subject}_${id}`);
+          // Delete associated options first to prevent foreign key violations
+          await supabase.from('options').delete().eq('question_id', qId);
+          await supabase.from('options').delete().eq('question_id', id);
+
+          const { error: err1 } = await supabase.from('questions').delete().eq('id', qId);
+          if (err1) {
+              const { error: err2 } = await supabase.from('questions').delete().eq('id', id);
+              if (err2) {
+                  return { success: false, message: err1.message || err2.message };
+              }
+          }
+          return { success: true, message: 'Success' };
+      } catch (err: any) {
+          console.error("Error in deleteQuestion:", err);
+          return { success: false, message: err.message || 'Error deleting question' };
+      }
   },
 
   getUsers: async (): Promise<any[]> => {
@@ -585,7 +751,11 @@ export const api = {
   // --- LCC DATABASE METHODS ---
   getLccTeams: async (): Promise<any[]> => {
       const { data, error } = await supabase.from('lcc_teams').select('*');
-      return error ? [] : (data || []).map((t: any) => ({
+      if (error) {
+          console.error("Error in getLccTeams:", error);
+          return [];
+      }
+      return (data || []).map((t: any) => ({
           id: t.id,
           name: t.name,
           school: t.school,
@@ -597,27 +767,36 @@ export const api = {
           members: t.members || []
       }));
   },
-  saveLccTeams: async (teams: any[]): Promise<{success: boolean}> => {
-      if (!teams || teams.length === 0) {
-          await supabase.from('lcc_teams').delete().neq('id', '');
-          return { success: true };
+  saveLccTeams: async (teams: any[]): Promise<{success: boolean; error?: any}> => {
+      try {
+          if (!teams || teams.length === 0) {
+              const { error } = await supabase.from('lcc_teams').delete().neq('id', '');
+              return { success: !error, error };
+          }
+          const { error } = await supabase.from('lcc_teams').upsert(teams.map(t => ({
+              id: t.id,
+              name: t.name,
+              school: t.school,
+              score: t.score,
+              color: t.color,
+              logo: t.logo,
+              correct_count: t.correctCount ?? 0,
+              wrong_count: t.wrongCount ?? 0,
+              members: t.members || []
+          })));
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in saveLccTeams:", err);
+          return { success: false, error: err };
       }
-      const { error } = await supabase.from('lcc_teams').upsert(teams.map(t => ({
-          id: t.id,
-          name: t.name,
-          school: t.school,
-          score: t.score,
-          color: t.color,
-          logo: t.logo,
-          correct_count: t.correctCount ?? 0,
-          wrong_count: t.wrongCount ?? 0,
-          members: t.members || []
-      })));
-      return { success: !error };
   },
   getLccQuestions: async (): Promise<any[]> => {
       const { data, error } = await supabase.from('lcc_questions').select('*');
-      return error ? [] : (data || []).map((q: any) => ({
+      if (error) {
+          console.error("Error in getLccQuestions:", error);
+          return [];
+      }
+      return (data || []).map((q: any) => ({
           id: q.id,
           nomorSoal: q.nomor_soal,
           babak: q.babak,
@@ -627,33 +806,77 @@ export const api = {
           kategori: q.kategori
       }));
   },
-  saveLccQuestion: async (q: any): Promise<{success: boolean}> => {
-      const { error } = await supabase.from('lcc_questions').upsert({
-          id: q.id,
-          nomor_soal: q.nomorSoal,
-          babak: q.babak,
-          soal: q.soal,
-          referensi_jawaban: q.referensiJawaban,
-          poin: q.poin,
-          kategori: q.kategori
-      });
-      return { success: !error };
+  saveLccQuestion: async (q: any): Promise<{success: boolean; error?: any}> => {
+      try {
+          const { error } = await supabase.from('lcc_questions').upsert({
+              id: q.id,
+              nomor_soal: q.nomorSoal,
+              babak: q.babak,
+              soal: q.soal,
+              referensi_jawaban: q.referensiJawaban,
+              poin: q.poin,
+              kategori: q.kategori
+          });
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in saveLccQuestion:", err);
+          return { success: false, error: err };
+      }
   },
-  deleteLccQuestion: async (id: string): Promise<{success: boolean}> => {
-      const { error } = await supabase.from('lcc_questions').delete().eq('id', id);
-      return { success: !error };
+  saveLccQuestions: async (questions: any[]): Promise<{success: boolean; error?: any}> => {
+      try {
+          const { error: deleteError } = await supabase.from('lcc_questions').delete().neq('id', '');
+          if (deleteError) return { success: false, error: deleteError };
+          if (!questions || questions.length === 0) return { success: true };
+          
+          const rows = questions.map(q => ({
+              id: q.id,
+              nomor_soal: q.nomorSoal,
+              babak: q.babak,
+              soal: q.soal,
+              referensi_jawaban: q.referensiJawaban,
+              poin: q.poin,
+              kategori: q.kategori
+          }));
+          const { error } = await supabase.from('lcc_questions').insert(rows);
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in saveLccQuestions:", err);
+          return { success: false, error: err };
+      }
+  },
+  deleteLccQuestion: async (id: string): Promise<{success: boolean; error?: any}> => {
+      try {
+          const { error } = await supabase.from('lcc_questions').delete().eq('id', id);
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in deleteLccQuestion:", err);
+          return { success: false, error: err };
+      }
   },
   getLccConfig: async (): Promise<any> => {
       const { data, error } = await supabase.from('lcc_config').select('config').eq('key', 'main').maybeSingle();
+      if (error) {
+          console.error("Error in getLccConfig:", error);
+      }
       return error || !data ? null : data.config;
   },
-  saveLccConfig: async (config: any): Promise<{success: boolean}> => {
-      const { error } = await supabase.from('lcc_config').upsert({ key: 'main', config });
-      return { success: !error };
+  saveLccConfig: async (config: any): Promise<{success: boolean; error?: any}> => {
+      try {
+          const { error } = await supabase.from('lcc_config').upsert({ key: 'main', config });
+          return { success: !error, error };
+      } catch (err: any) {
+          console.error("Error in saveLccConfig:", err);
+          return { success: false, error: err };
+      }
   },
   getLccHistory: async (): Promise<any[]> => {
       const { data, error } = await supabase.from('lcc_history').select('*').order('timestamp', { ascending: false });
-      return error ? [] : (data || []).map((h: any) => ({
+      if (error) {
+          console.error("Error in getLccHistory:", error);
+          return [];
+      }
+      return (data || []).map((h: any) => ({
           id: h.id,
           timestamp: h.timestamp,
           teamId: h.team_id,
@@ -663,10 +886,11 @@ export const api = {
           delta: h.delta
       }));
   },
-  saveLccHistory: async (history: any[]): Promise<{success: boolean}> => {
+  saveLccHistory: async (history: any[]): Promise<{success: boolean; error?: any}> => {
       try {
           // Clear existing history rows first to overwrite with current list
-          await supabase.from('lcc_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          const { error: deleteError } = await supabase.from('lcc_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          if (deleteError) return { success: false, error: deleteError };
           
           if (!history || history.length === 0) return { success: true };
 
@@ -680,10 +904,10 @@ export const api = {
           }));
 
           const { error } = await supabase.from('lcc_history').insert(rows);
-          return { success: !error };
-      } catch (err) {
+          return { success: !error, error };
+      } catch (err: any) {
           console.error("Error saving LCC history:", err);
-          return { success: false };
+          return { success: false, error: err };
       }
   }
 };

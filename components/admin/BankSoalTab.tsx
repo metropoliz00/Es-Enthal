@@ -17,8 +17,10 @@ const BankSoalTab = () => {
     const [selectedSubject, setSelectedSubject] = useState('');
     const [questions, setQuestions] = useState<QuestionRow[]>([]);
     const [tps, setTps] = useState<LearningObjective[]>([]); // Store all TPs
+    const [savingCardId, setSavingCardId] = useState<string | null>(null);
     const [loadingData, setLoadingData] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
+    const [isModalSaved, setIsModalSaved] = useState(false);
     const [currentQ, setCurrentQ] = useState<QuestionRow | null>(null);
     const [importing, setImporting] = useState(false);
     
@@ -140,14 +142,31 @@ const BankSoalTab = () => {
         return filtered;
     }, [tps, selectedSubject, currentQ?.kelas]);
 
+    const getNextQuestionId = (qList: QuestionRow[]) => {
+        if (!qList || qList.length === 0) return 'Q1';
+        let maxNum = 0;
+        qList.forEach(q => {
+            if (!q.id) return;
+            const match = q.id.match(/\d+/);
+            if (match) {
+                const num = parseInt(match[0], 10);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
+        });
+        const nextNum = maxNum > 0 ? maxNum + 1 : qList.length + 1;
+        return `Q${nextNum}`;
+    };
+
     const handleEdit = (q: QuestionRow) => {
+        setIsModalSaved(false);
         setCurrentQ(q);
         setModalOpen(true);
     };
 
     const handleAddNew = () => {
+        setIsModalSaved(false);
         setCurrentQ({
-            id: `Q${questions.length + 1}`,
+            id: getNextQuestionId(questions),
             text_soal: '',
             tipe_soal: 'PG',
             gambar: '',
@@ -158,9 +177,9 @@ const BankSoalTab = () => {
             opsi_d: '',
             kunci_jawaban: '',
             bobot: 10,
-            kelas: '',
+            kelas: filterKelas !== 'all' ? filterKelas : '',
             tp_id: '',
-            jenis_ujian: '', // Init Jenis Ujian
+            jenis_ujian: filterJenisUjian !== 'all' ? filterJenisUjian : '', // Init Jenis Ujian
             kode_paket: '' // Init Kode Paket
         });
         setModalOpen(true);
@@ -173,23 +192,78 @@ const BankSoalTab = () => {
     const confirmDeleteQuestion = async () => {
         if (!deleteConfirmId) return;
         setLoadingData(true);
-        await api.deleteQuestion(selectedSubject, deleteConfirmId);
-        const data = await api.getRawQuestions(selectedSubject);
-        setQuestions(data);
-        setLoadingData(false);
-        showToast("Soal berhasil dihapus", "success");
-        setDeleteConfirmId(null);
+        try {
+            const res = await api.deleteQuestion(selectedSubject, deleteConfirmId);
+            if (res.success) {
+                showToast("Soal berhasil dihapus!", "success");
+            } else {
+                showToast(`Gagal menghapus dari database: ${res.message || 'Error'}`, "warning");
+            }
+        } catch (err: any) {
+            showToast(`Gagal menghapus: ${err.message || 'Error'}`, "error");
+        } finally {
+            setQuestions(prev => prev.filter(q => q.id !== deleteConfirmId));
+            setLoadingData(false);
+            setDeleteConfirmId(null);
+        }
+    };
+
+    const handleSaveSingleCard = async (q: QuestionRow) => {
+        setSavingCardId(q.id);
+        try {
+            const finalQ = { ...q, kunci_jawaban: (q.kunci_jawaban || '').toUpperCase() };
+            const res = await api.saveQuestion(selectedSubject, finalQ);
+            if (res.success) {
+                showToast(`Soal (${q.id}) berhasil disimpan ke database!`, "success");
+            } else {
+                showToast(`Gagal menyimpan soal (${q.id}): ${res.message}`, "error");
+            }
+        } catch (err: any) {
+            showToast(`Gagal menyimpan: ${err.message || 'Error'}`, "error");
+        } finally {
+            setSavingCardId(null);
+        }
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentQ) return;
+
+        // If form is already saved, clicking the button triggers "Tambah Soal Baru"
+        if (isModalSaved) {
+            setCurrentQ({
+                id: getNextQuestionId(questions),
+                text_soal: '',
+                tipe_soal: 'PG',
+                gambar: '',
+                caption: '',
+                opsi_a: '',
+                opsi_b: '',
+                opsi_c: '',
+                opsi_d: '',
+                kunci_jawaban: 'A',
+                bobot: 10,
+                kelas: filterKelas !== 'all' ? filterKelas : '',
+                tp_id: '',
+                jenis_ujian: filterJenisUjian !== 'all' ? filterJenisUjian : '',
+                kode_paket: ''
+            });
+            setIsModalSaved(false);
+            showToast("Form dibersihkan. Siap untuk input soal baru!", "info");
+            return;
+        }
+
         setLoadingData(true);
-        const finalQ = { ...currentQ, kunci_jawaban: currentQ.kunci_jawaban.toUpperCase() };
-        await api.saveQuestion(selectedSubject, finalQ);
+        const finalQ = { ...currentQ, kunci_jawaban: (currentQ.kunci_jawaban || '').toUpperCase() };
+        const res = await api.saveQuestion(selectedSubject, finalQ);
+        if (res.success) {
+            showToast("Soal berhasil disimpan ke database!", "success");
+            setIsModalSaved(true);
+        } else {
+            showToast(`Gagal menyimpan soal: ${res.message}`, "error");
+        }
         const data = await api.getRawQuestions(selectedSubject);
         setQuestions(data);
-        setModalOpen(false);
         setLoadingData(false);
     };
 
@@ -284,8 +358,12 @@ const BankSoalTab = () => {
                 }
 
                 if (parsedQuestions.length > 0) {
-                     await api.importQuestions(selectedSubject, parsedQuestions);
-                     showToast(`Berhasil mengimpor ${parsedQuestions.length} soal.`, "success");
+                     const res = await api.importQuestions(selectedSubject, parsedQuestions);
+                     if (res.success) {
+                         showToast(`Berhasil mengimpor ${parsedQuestions.length} soal ke database.`, "success");
+                     } else {
+                         showToast(`Gagal mengimpor soal: ${res.message}`, "error");
+                     }
                      setLoadingData(true);
                      const freshData = await api.getRawQuestions(selectedSubject);
                      setQuestions(freshData);
@@ -528,9 +606,18 @@ const BankSoalTab = () => {
                                                 )
                                             )}
                                         </div>
-                                        <div className="flex gap-2 shrink-0">
-                                            <button onClick={() => handleEdit(q)} className="p-2 text-amber-500 bg-amber-50 hover:bg-amber-100 rounded-lg transition"><Edit size={16}/></button>
-                                            <button onClick={() => handleDelete(q.id)} className="p-2 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-lg transition"><Trash2 size={16}/></button>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <button 
+                                                onClick={() => handleSaveSingleCard(q)} 
+                                                disabled={savingCardId === q.id}
+                                                className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+                                                title="Simpan Soal Ini ke Database"
+                                            >
+                                                {savingCardId === q.id ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                <span>Simpan</span>
+                                            </button>
+                                            <button onClick={() => handleEdit(q)} className="p-2 text-amber-500 bg-amber-50 hover:bg-amber-100 rounded-xl transition" title="Edit Soal"><Edit size={16}/></button>
+                                            <button onClick={() => handleDelete(q.id)} className="p-2 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition" title="Hapus Soal"><Trash2 size={16}/></button>
                                         </div>
                                     </div>
                                     
@@ -770,11 +857,29 @@ const BankSoalTab = () => {
                                         
                                         {/* BOTTOM ACTION BUTTONS */}
                                         <div className="flex gap-3">
-                                            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 transition">
-                                                Batal
+                                            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 transition cursor-pointer">
+                                                Tutup
                                             </button>
-                                            <button type="submit" disabled={loadingData} className="flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2 active:scale-95">
-                                                {loadingData ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Simpan Soal
+                                            <button 
+                                                type="submit" 
+                                                disabled={loadingData} 
+                                                className={`flex-1 py-3 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer ${
+                                                    isModalSaved 
+                                                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200' 
+                                                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200'
+                                                }`}
+                                            >
+                                                {loadingData ? (
+                                                    <Loader2 size={18} className="animate-spin"/>
+                                                ) : isModalSaved ? (
+                                                    <>
+                                                        <Plus size={18}/> Tambah Soal
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Save size={18}/> Simpan Soal
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     </div>
