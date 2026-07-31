@@ -110,7 +110,13 @@ interface ScoreboardLCCTabProps {
 
 export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScoreboardMode = false, currentUser }) => {
     const { showToast } = useToast();
-    const isJuri = currentUser?.role?.toLowerCase() === 'juri';
+    const userRoleLower = (currentUser?.role || '').toLowerCase();
+    const isJuri = userRoleLower === 'juri';
+    const isOperatorLimited = !['admin', 'guru'].includes(userRoleLower) && (
+        userRoleLower.includes('operator') || 
+        userRoleLower.includes('gugus') || 
+        userRoleLower.includes('kecamatan')
+    );
 
     // Helper to parse Gugus from team school
     const getTeamGugus = (t: LccTeam) => {
@@ -223,6 +229,13 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
     const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
     const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
     const [isSavingQuestions, setIsSavingQuestions] = useState<boolean>(false);
+
+    // Enforce allowed tabs for Operator Gugus / Operator Kecamatan
+    useEffect(() => {
+        if (isOperatorLimited && activeTabOperator !== 'control' && activeTabOperator !== 'history') {
+            setActiveTabOperator('control');
+        }
+    }, [isOperatorLimited, activeTabOperator]);
 
     // Sync Broadcast Channel across windows/tabs
     const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
@@ -1543,7 +1556,9 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                             { id: 'settings', label: 'Pengaturan Lomba & Nilai', icon: Settings },
                             { id: 'history', label: 'Riwayat Skor Log', icon: History },
                             { id: 'export', label: 'Export & Backup', icon: Download },
-                        ].map(tab => {
+                        ]
+                        .filter(tab => !isOperatorLimited || (tab.id === 'control' || tab.id === 'history'))
+                        .map(tab => {
                             const Icon = tab.icon;
                             const active = activeTabOperator === tab.id;
                             return (
@@ -1720,12 +1735,14 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                 ) : (
                                     <div className="p-4 bg-slate-900/60 rounded-xl text-center text-slate-400 text-xs font-medium space-y-2">
                                         <p>Belum ada pertanyaan tersimpan di Bank Soal untuk Soal {config.nomorSoal}.</p>
-                                        <button
-                                            onClick={() => setActiveTabOperator('soal')}
-                                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition inline-flex items-center gap-1 shadow-sm"
-                                        >
-                                            <Plus size={14}/> Input atau Impor Soal di Menu Bank Soal
-                                        </button>
+                                        {!isOperatorLimited && (
+                                            <button
+                                                onClick={() => setActiveTabOperator('soal')}
+                                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition inline-flex items-center gap-1 shadow-sm"
+                                            >
+                                                <Plus size={14}/> Input atau Impor Soal di Menu Bank Soal
+                                            </button>
+                                        )}
                                     </div>
                                 )
                             )}

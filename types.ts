@@ -1,6 +1,6 @@
 
 // 1. Tabel Users
-export type UserRole = 'admin' | 'Guru' | 'siswa' | 'Juri' | 'juri' | 'Operator Kecamatan' | 'Proktor Sekolah';
+export type UserRole = 'admin' | 'Guru' | 'siswa' | 'Juri' | 'juri' | 'Operator Kecamatan' | 'Operator Gugus' | 'Proktor Sekolah';
 
 export interface User {
   id: string;
