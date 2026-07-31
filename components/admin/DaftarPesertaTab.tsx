@@ -647,17 +647,19 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                         </div>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className={`grid ${!(mode === 'siswa' && isBereguExamType(formData.exam_type)) ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
                                     <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>
                                         <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} disabled={currentUser.role !== 'admin' || mode === 'siswa'}>
                                             {mode === 'siswa' ? <option value="siswa">Siswa</option> : <><option value="Guru">Guru</option><option value="Juri">Juri LCC</option><option value="Operator Kecamatan">Operator Kecamatan / Gugus</option><option value="Proktor Sekolah">Proktor Sekolah</option><option value="admin">Admin Pusat</option></>}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Jenis Kelamin (L/P)</label>
-                                        <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}><option value="L">L</option><option value="P">P</option></select>
-                                    </div>
+                                    {!(mode === 'siswa' && isBereguExamType(formData.exam_type)) && (
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Jenis Kelamin (L/P)</label>
+                                            <select className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}><option value="L">L</option><option value="P">P</option></select>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 {/* Unified Class Selector / Gugus for BOTH Student and Staff */}
