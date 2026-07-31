@@ -105,6 +105,25 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
         
         const cardsHtml = filteredStudents.map((s) => {
             const subjectLabel = s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................';
+            const isBeregu = isBereguExamType(s.exam_type);
+            let nameRowsHtml = '';
+            
+            if (isBeregu) {
+                const parts = (s.fullname || '').split('|').map((p: string) => p.trim());
+                const teamName = parts[0] || '';
+                const m1 = parts[1] || '..................';
+                const m2 = parts[2] || '..................';
+                const m3 = parts[3] || '..................';
+                nameRowsHtml = `
+                    <tr><td width="65">Nama Regu</td><td>: <b>${teamName}</b></td></tr>
+                    <tr><td>Anggota</td><td>: <span style="font-size: 7.2pt; color: #333; line-height: 1.25;">1. ${m1}<br>2. ${m2}<br>3. ${m3}</span></td></tr>
+                `;
+            } else {
+                nameRowsHtml = `
+                    <tr><td width="65">Nama</td><td>: <b>${s.fullname}</b></td></tr>
+                `;
+            }
+            
             return `
             <div class="card">
                 <div class="card-header">
@@ -119,7 +138,7 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                 <div class="card-body">
                     <div class="info-col">
                         <table class="info-table">
-                            <tr><td width="65">${isBereguExamType(s.exam_type) ? 'Nama Regu' : 'Nama'}</td><td>: <b>${s.fullname}</b></td></tr>
+                            ${nameRowsHtml}
                             <tr><td>Kelas</td><td>: ${s.kelas || '-'}</td></tr>
                             <tr><td>Mata Pelajaran</td><td>: <b>${subjectLabel}</b></td></tr>
                             <tr><td>Sesi</td><td>: ${s.session || '-'}</td></tr>
@@ -338,7 +357,18 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                                 <div className="flex-1">
                                     <table className="w-full text-[11px] leading-[1.25]">
                                         <tbody>
-                                            <tr><td className="w-16">{isBereguExamType(s.exam_type) ? 'Nama Regu' : 'Nama'}</td><td>: <b>{s.fullname}</b></td></tr>
+                                            {isBereguExamType(s.exam_type) ? (
+                                                <>
+                                                    <tr><td className="w-16">Nama Regu</td><td>: <b>{(s.fullname || '').split('|')[0]?.trim()}</b></td></tr>
+                                                    <tr><td>Anggota</td><td>: <span style={{ fontSize: '7.2pt', color: '#333', lineHeight: '1.25' }}>
+                                                        1. {(s.fullname || '').split('|')[1]?.trim() || '..................'}<br/>
+                                                        2. {(s.fullname || '').split('|')[2]?.trim() || '..................'}<br/>
+                                                        3. {(s.fullname || '').split('|')[3]?.trim() || '..................'}
+                                                    </span></td></tr>
+                                                </>
+                                            ) : (
+                                                <tr><td className="w-16">Nama</td><td>: <b>{s.fullname}</b></td></tr>
+                                            )}
                                             <tr><td>Kelas</td><td>: {s.kelas || '-'}</td></tr>
                                             <tr><td>Mata Pelajaran</td><td>: <b>{s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................'}</b></td></tr>
                                             <tr><td>Sesi</td><td>: {s.session || '-'}</td></tr>

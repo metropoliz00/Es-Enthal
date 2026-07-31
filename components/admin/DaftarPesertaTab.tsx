@@ -30,6 +30,12 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Beregu state fields
+    const [bereguTeamName, setBereguTeamName] = useState('');
+    const [bereguMember1, setBereguMember1] = useState('');
+    const [bereguMember2, setBereguMember2] = useState('');
+    const [bereguMember3, setBereguMember3] = useState('');
     
     // Form data matches DB structure exactly
     const [formData, setFormData] = useState<{
@@ -43,6 +49,17 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
         loadUsers(); 
         loadExamTypes();
     }, [mode]);
+
+    // Automatic split for Beregu when exam type changes
+    useEffect(() => {
+        if (isModalOpen && isBereguExamType(formData.exam_type) && formData.fullname) {
+            const parts = (formData.fullname || '').split('|').map((p: string) => p.trim());
+            setBereguTeamName(parts[0] || '');
+            setBereguMember1(parts[1] || '');
+            setBereguMember2(parts[2] || '');
+            setBereguMember3(parts[3] || '');
+        }
+    }, [formData.exam_type, isModalOpen]);
 
     const loadExamTypes = async () => {
         try {
@@ -155,6 +172,19 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             photo_url: user.photo_url || '',
             exam_type: user.exam_type || ''
         }); 
+        
+        if (isBereguExamType(user.exam_type)) {
+            const parts = (user.fullname || '').split('|').map((p: string) => p.trim());
+            setBereguTeamName(parts[0] || '');
+            setBereguMember1(parts[1] || '');
+            setBereguMember2(parts[2] || '');
+            setBereguMember3(parts[3] || '');
+        } else {
+            setBereguTeamName('');
+            setBereguMember1('');
+            setBereguMember2('');
+            setBereguMember3('');
+        }
         setIsModalOpen(true); 
     };
 
@@ -213,6 +243,10 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             photo_url: '',
             exam_type: currentUser.role === 'Operator Kecamatan' ? 'LCC' : currentUser.role === 'Proktor Sekolah' ? 'OSN' : ''
         }); 
+        setBereguTeamName('');
+        setBereguMember1('');
+        setBereguMember2('');
+        setBereguMember3('');
         setIsModalOpen(true); 
     };
     
@@ -220,7 +254,16 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
         e.preventDefault(); 
         setIsSaving(true); 
         try { 
-            const res = await api.saveUser(formData); 
+            let finalFormData = { ...formData };
+            if (formData.role === 'siswa' && isBereguExamType(formData.exam_type)) {
+                // Combine team name and members with separator "|"
+                const combined = [bereguTeamName, bereguMember1, bereguMember2, bereguMember3]
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .join(' | ');
+                finalFormData.fullname = combined;
+            }
+            const res = await api.saveUser(finalFormData); 
             if (!res.success) {
                 showToast("Gagal menyimpan data: " + res.message, "error");
             } else {
@@ -557,17 +600,39 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                     <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Username</label><input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} /></div>
                                     <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password</label><input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
                                 </div>
-                                <div><div className="flex justify-between items-center mb-1">
-                                         <label className="block text-[10px] font-bold text-slate-400 uppercase">
-                                             {formData.role === 'siswa' && isBereguExamType(formData.exam_type) ? 'Nama Regu / Tim' : 'Nama Lengkap'}
-                                         </label>
-                                         {formData.role === 'siswa' && isBereguExamType(formData.exam_type) && (
-                                             <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
-                                                 Format Beregu (LCC)
-                                             </span>
-                                         )}
-                                     </div>
-                                     <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder={formData.role === 'siswa' && isBereguExamType(formData.exam_type) ? "Contoh: Regu A - SDN Remen 2" : "Nama Lengkap"} /></div>
+                                <div>
+                                    {formData.role === 'siswa' && isBereguExamType(formData.exam_type) ? (
+                                        <div className="space-y-3 p-4 bg-amber-50/40 rounded-2xl border border-amber-200/60">
+                                            <div className="flex justify-between items-center">
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase">Nama Regu / Tim</label>
+                                                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                                                    Format Beregu (LCC)
+                                                </span>
+                                            </div>
+                                            <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={bereguTeamName} onChange={e => setBereguTeamName(e.target.value)} placeholder="Contoh: Regu A" />
+                                            
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Anggota 1 (Ketua)</label>
+                                                <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={bereguMember1} onChange={e => setBereguMember1(e.target.value)} placeholder="Nama Anggota 1" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Anggota 2</label>
+                                                <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={bereguMember2} onChange={e => setBereguMember2(e.target.value)} placeholder="Nama Anggota 2" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nama Anggota 3</label>
+                                                <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={bereguMember3} onChange={e => setBereguMember3(e.target.value)} placeholder="Nama Anggota 3" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase">Nama Lengkap</label>
+                                            </div>
+                                            <input required type="text" className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder="Nama Lengkap" />
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Role</label>

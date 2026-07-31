@@ -1091,7 +1091,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                 {config.namaBabak}
                             </span>
                             <span className="px-3 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-widest">
-                                Soal #{config.nomorSoal}
+                                Soal {config.nomorSoal}
                             </span>
                         </div>
                         <div className={`text-xs font-black uppercase tracking-widest px-4 py-1 rounded-full border ${
@@ -1751,7 +1751,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                         <div className="flex gap-1">
                                                             <button 
                                                                 onClick={() => {
-                                                                    updateScore(destTeam.id, config.nilaiLempar, `Lempar Soal #${config.nomorSoal}`);
+                                                                    updateScore(destTeam.id, config.nilaiLempar, `Lempar Soal ${config.nomorSoal}`);
                                                                     setFailingTeamId('');
                                                                 }}
                                                                 className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-700 transition"
@@ -1760,7 +1760,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                             </button>
                                                             <button 
                                                                 onClick={() => {
-                                                                    updateScore(destTeam.id, -config.penguranganSalah, `Salah Lempar Soal #${config.nomorSoal}`);
+                                                                    updateScore(destTeam.id, -config.penguranganSalah, `Salah Lempar Soal ${config.nomorSoal}`);
                                                                     setFailingTeamId('');
                                                                 }}
                                                                 className="px-3 py-1 bg-rose-600 text-white rounded-lg text-[10px] font-bold hover:bg-rose-700 transition"
@@ -2144,7 +2144,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                         <tr key={q.id} className={`hover:bg-slate-50/80 transition ${isActive ? 'bg-amber-50/60 font-medium' : ''}`}>
                                                             <td className="p-3 font-black text-slate-800 text-center">
                                                                 <span className={`px-2 py-1 rounded-lg text-xs ${isActive ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                                                                    #{q.nomorSoal}
+                                                                    {q.nomorSoal}
                                                                 </span>
                                                             </td>
                                                             <td className="p-3 space-y-1">
@@ -2171,7 +2171,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                                             setConfig(prev => ({ ...prev, nomorSoal: q.nomorSoal }));
                                                                             setActiveTabOperator('control');
                                                                             setIsQuestionCardOpen(true);
-                                                                            showToast(`Soal #${q.nomorSoal} terpilih di Panel Utama!`, 'info');
+                                                                            showToast(`Soal ${q.nomorSoal} terpilih di Panel Utama!`, 'info');
                                                                         }}
                                                                         className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-[10px] transition"
                                                                         title="Pilih & Buka Soal Ini"
@@ -2336,7 +2336,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     <div key={t.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="font-black text-xs uppercase" style={{ color: t.color }}>
-                                                Detail Regu #{idx + 1}
+                                                Detail Regu {idx + 1}
                                             </span>
                                             <input 
                                                 type="color" 

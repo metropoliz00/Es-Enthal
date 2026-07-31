@@ -4,7 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { Printer, ArrowDownAZ, ArrowUpZA } from 'lucide-react';
 import { api } from '../../src/services/api';
 import { User, Exam } from '../../types';
-import { getSubjects, getExamTypes, getExamSubjectMapping } from '../../utils/adminHelpers';
+import { getSubjects, getExamTypes, getExamSubjectMapping, isBereguExamType } from '../../utils/adminHelpers';
 
 const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
     const { showToast } = useToast();
@@ -125,18 +125,71 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
         const logoLeftUrl = appConfig['LOGO_KABUPATEN'] || transparentPixel;
         const logoRightUrl = appConfig['LOGO_SEKOLAH'] || transparentPixel;
 
-        const rowsHtml = filteredStudents.map((s, idx) => `
-            <tr>
-                <td style="text-align: center;">${idx + 1}</td>
-                <td>${s.username}</td>
-                <td>${s.fullname}</td>
-                <td style="text-align: center;">${s.kelas || '-'}</td>
-                <td>${examName}</td>
-                <td>${s.school || '-'}</td>
-                <td style="text-align: center;">${s.kecamatan || '-'}</td>
-                <td></td>
-            </tr>
-        `).join('');
+        const isAnyBeregu = filteredStudents.some(s => isBereguExamType(s.exam_type));
+
+        const rowsHtml = filteredStudents.map((s, idx) => {
+            const isBeregu = isBereguExamType(s.exam_type);
+            let nameHtml = s.fullname;
+            let signatureHtml = '';
+            
+            if (isBeregu) {
+                const parts = (s.fullname || '').split('|').map((p: string) => p.trim());
+                const teamName = parts[0] || '';
+                const m1 = parts[1] || '';
+                const m2 = parts[2] || '';
+                const m3 = parts[3] || '';
+                
+                nameHtml = `
+                    <div style="font-weight: bold; margin-bottom: 4px;">${teamName}</div>
+                    <ol style="margin: 0; padding-left: 14px; font-size: 11px; color: #444;">
+                        ${m1 ? `<li>${m1}</li>` : '<li>..................</li>'}
+                        ${m2 ? `<li>${m2}</li>` : '<li>..................</li>'}
+                        ${m3 ? `<li>${m3}</li>` : '<li>..................</li>'}
+                    </ol>
+                `;
+                
+                signatureHtml = `
+                    <table style="width: 100%; border: none !important; font-size: 9px; line-height: 1.25;">
+                        <tr style="border: none !important;">
+                            <td style="border: none !important; padding: 2px 0; width: 50%;">1. ....................</td>
+                            <td style="border: none !important; padding: 2px 0; width: 50%;"></td>
+                        </tr>
+                        <tr style="border: none !important;">
+                            <td style="border: none !important; padding: 2px 0;"></td>
+                            <td style="border: none !important; padding: 2px 0;">2. ....................</td>
+                        </tr>
+                        <tr style="border: none !important;">
+                            <td style="border: none !important; padding: 2px 0;">3. ....................</td>
+                            <td style="border: none !important; padding: 2px 0;"></td>
+                        </tr>
+                    </table>
+                `;
+            } else {
+                nameHtml = s.fullname;
+                if ((idx + 1) % 2 !== 0) {
+                    signatureHtml = `
+                        <div style="width: 100%; text-align: left; padding-left: 10px;">${idx + 1}. ....................</div>
+                    `;
+                } else {
+                    signatureHtml = `
+                        <div style="width: 100%; text-align: right; padding-right: 10px;">${idx + 1}. ....................</div>
+                    `;
+                }
+            }
+            
+            return `
+                <tr>
+                    <td style="text-align: center; vertical-align: middle;">${idx + 1}</td>
+                    <td style="vertical-align: middle; font-family: monospace;">${s.username}</td>
+                    <td style="vertical-align: middle;">${nameHtml}</td>
+                    <td style="text-align: center; vertical-align: middle;">${s.kelas || '-'}</td>
+                    <td style="vertical-align: middle;">${examName}</td>
+                    <td style="vertical-align: middle;">${s.school || '-'}</td>
+                    <td style="text-align: center; vertical-align: middle;">${s.kecamatan || '-'}</td>
+                    <td style="vertical-align: middle; padding: 4px;">${signatureHtml}</td>
+                </tr>
+            `;
+        }).join('');
 
         const htmlContent = `
             <!DOCTYPE html>
@@ -188,7 +241,7 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
                             <th>Mapel</th>
                             <th>Sekolah</th>
                             <th>Kecamatan</th>
-                            <th width="100">Tanda Tangan</th>
+                            <th width="${isAnyBeregu ? '160' : '110'}">Tanda Tangan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -319,7 +372,20 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
                                 <tr key={s.username} className="hover:bg-slate-50">
                                     <td className="p-4 text-center text-slate-500 font-mono">{idx+1}</td>
                                     <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
-                                    <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
+                                    <td className="p-4 font-bold text-slate-700">
+                                        {isBereguExamType(s.exam_type) ? (
+                                            <div>
+                                                <div className="font-extrabold text-indigo-700">{s.fullname.split('|')[0]?.trim()}</div>
+                                                <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1 bg-slate-50 p-1.5 rounded-md border border-slate-100 max-w-sm">
+                                                    {s.fullname.split('|').slice(1).map((m: string, i: number) => (
+                                                        <span key={i} className="font-medium">• {m.trim()}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            s.fullname
+                                        )}
+                                    </td>
                                     <td className="p-4 text-slate-600">{s.kelas || '-'}</td>
                                     <td className="p-4 text-slate-600">{s.school}</td>
                                     <td className="p-4 text-slate-600">{s.kecamatan || '-'}</td>
