@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy, Bell, Laptop } from 'lucide-react';
+import { Key, User as UserIcon, AlertCircle, LogOut, Check, Eye, EyeOff, Loader2, Clock, ShieldCheck, PlayCircle, GraduationCap, LogIn, ChevronRight, BookOpen, Fingerprint, Users, Trophy, Bell, Laptop, Sparkles, Radio } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import ScoreboardLCCTab from './components/admin/ScoreboardLCCTab';
@@ -9,6 +9,8 @@ import LccReguBuzzerView from './components/LccReguBuzzerView';
 import { api } from './src/services/api';
 import { useToast } from './context/ToastContext';
 import { isBereguExamType } from './utils/adminHelpers';
+import { motion, AnimatePresence } from 'motion/react';
+import { soundFx } from './utils/scoreboardAudio';
 
 type ViewState = 'login' | 'babak_selection' | 'confirm' | 'exam' | 'result' | 'admin' | 'regu_bell';
 
@@ -375,41 +377,219 @@ function App() {
   // --- VIEW: BABAK SELECTION ---
   if (view === 'babak_selection') {
       return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 font-sans relative">
-              {/* Animated Background */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-amber-400/20 rounded-full blur-[120px] animate-pulse"></div>
-                  <div className="absolute bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '0.7s' }}></div>
+          <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col justify-between relative overflow-hidden select-none">
+              {/* Dynamic Glowing Ambient Background */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                  <motion.div 
+                      animate={{
+                          scale: [1, 1.2, 1],
+                          x: [0, 50, 0],
+                          y: [0, -50, 0],
+                      }}
+                      transition={{
+                          duration: 15,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                      }}
+                      className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-indigo-600/15 rounded-full blur-[140px]"
+                  />
+                  <motion.div 
+                      animate={{
+                          scale: [1, 1.3, 1],
+                          x: [0, -80, 0],
+                          y: [0, 60, 0],
+                      }}
+                      transition={{
+                          duration: 18,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 1
+                      }}
+                      className="absolute -bottom-[15%] -right-[15%] w-[60%] h-[60%] bg-amber-500/15 rounded-full blur-[140px]"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-25"></div>
               </div>
 
-              <div className="bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-3xl shadow-2xl border border-white max-w-2xl w-full text-center relative z-10">
-                  <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-4 tracking-tight">Selamat Datang, <span className="text-amber-500">{currentUser?.nama_lengkap}</span></h2>
-                  <p className="text-slate-500 text-lg mb-10 font-medium">Silakan pilih babak kompetisi yang akan Anda ikuti saat ini.</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <button 
-                          onClick={() => setView('confirm')}
-                          className="group relative flex flex-col items-center justify-center p-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 border border-indigo-400"
-                      >
-                          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
-                              <Laptop size={40} className="text-white" />
+              {/* HEADER AREA */}
+              <header className="relative z-10 px-6 md:px-12 py-5 bg-slate-900/60 border-b border-slate-800/80 backdrop-blur-md flex items-center justify-between shadow-lg">
+                  <div className="flex items-center gap-3.5">
+                      {schoolLogo ? (
+                          <img src={schoolLogo} className="h-10 w-auto object-contain bg-white/10 p-1.5 rounded-xl border border-white/10" alt="Logo" />
+                      ) : (
+                          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md font-bold">
+                              E
                           </div>
-                          <span className="text-2xl font-bold text-white mb-2 tracking-wide">BABAK I</span>
-                          <span className="text-indigo-100 text-sm font-medium">Tes Komputer (CBT)</span>
-                      </button>
-
-                      <button 
-                          onClick={() => setView('regu_bell')}
-                          className="group relative flex flex-col items-center justify-center p-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 border border-amber-400"
-                      >
-                          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors">
-                              <Bell size={40} className="text-white" />
-                          </div>
-                          <span className="text-2xl font-bold text-white mb-2 tracking-wide">BABAK II</span>
-                          <span className="text-amber-100 text-sm font-medium">Cerdas Cermat (Buzzer)</span>
-                      </button>
+                      )}
+                      <div>
+                          <h1 className="font-black text-sm md:text-base tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-slate-100 to-amber-200 uppercase leading-none">
+                              ES ENTHAL
+                          </h1>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                              Digital Assessment System
+                          </p>
+                      </div>
                   </div>
-                  
+
+                  {/* Identity pill / Welcome badge */}
+                  <div className="flex items-center gap-3 bg-slate-800/80 border border-slate-700/60 py-1.5 px-4 rounded-full shadow-inner max-w-xs md:max-w-md">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
+                      <span className="text-xs font-semibold text-slate-300 truncate hidden md:inline">
+                          Regu Terkoneksi: <span className="font-black text-amber-400">{currentUser?.nama_lengkap}</span>
+                      </span>
+                      <span className="text-xs font-black text-amber-400 truncate md:hidden">
+                          {currentUser?.nama_lengkap}
+                      </span>
+                  </div>
+              </header>
+
+              {/* MAIN CONTENT DASHBOARD */}
+              <main className="relative z-10 flex-1 flex flex-col items-center justify-center py-10 px-4 md:px-8 max-w-6xl mx-auto w-full gap-8">
+                  {/* Title Section */}
+                  <motion.div 
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6 }}
+                      className="text-center space-y-3"
+                  >
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black rounded-full uppercase tracking-widest text-center mx-auto">
+                          <Trophy size={14} className="animate-pulse" /> Babak Pemilihan Kompetisi LCC
+                      </div>
+                      <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+                          Selamat Datang di <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-200 to-indigo-400 uppercase drop-shadow-sm">Layar Babak LCC</span>
+                      </h2>
+                      <p className="text-slate-400 text-sm md:text-base max-w-xl mx-auto font-medium leading-relaxed">
+                          Halo, <span className="text-amber-400 font-extrabold">{currentUser?.nama_lengkap}</span> ({currentUser?.kelas_id || 'SD'}). Silakan pilih menu babak di bawah ini sesuai instruksi dari Panitia atau Juri.
+                      </p>
+                  </motion.div>
+
+                  {/* Two Main Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl pt-2">
+                      {/* CARD BABAK I */}
+                      <motion.div 
+                          initial={{ opacity: 0, x: -30 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          whileHover={{ scale: 1.03 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                          onMouseEnter={() => soundFx.playTick()}
+                          onClick={() => {
+                              soundFx.playCorrect();
+                              setView('confirm');
+                          }}
+                          className="group relative cursor-pointer bg-gradient-to-b from-slate-900/90 to-slate-950/90 border-2 border-indigo-500/30 hover:border-indigo-500 rounded-3xl p-6 md:p-8 shadow-xl flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-[0_0_50px_rgba(99,102,241,0.25)] h-[360px]"
+                      >
+                          {/* Top lighting effect */}
+                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
+                          <div className="absolute -top-12 -right-12 w-40 h-40 bg-indigo-600/10 rounded-full blur-2xl group-hover:bg-indigo-600/20 transition-all duration-500" />
+
+                          <div className="space-y-6">
+                              {/* Glowing Icon Container */}
+                              <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/30 group-hover:bg-indigo-500/20 transition-all group-hover:scale-110 duration-300 shadow-[0_0_20px_rgba(99,102,241,0.15)]">
+                                  <Laptop size={32} className="text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                              </div>
+
+                              <div>
+                                  <span className="text-[11px] font-black uppercase text-indigo-400 tracking-widest block mb-1">
+                                      KOMPETISI SESI UTAMA
+                                  </span>
+                                  <h3 className="text-2xl font-black text-white group-hover:text-indigo-300 transition-colors">
+                                      BABAK I
+                                  </h3>
+                                  <p className="text-xs text-slate-400 font-medium mt-1">
+                                      Computer Based Test (CBT)
+                                  </p>
+                              </div>
+
+                              {/* Features checklist */}
+                              <ul className="space-y-2 text-xs font-semibold text-slate-400">
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                      Tes Mandiri Tertulis Digital
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                      Pilihan Ganda & Isian Singkat
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                      Jawaban Tersimpan Otomatis
+                                  </li>
+                              </ul>
+                          </div>
+
+                          {/* Futuristic action button */}
+                          <div className="pt-4 border-t border-slate-900 flex items-center justify-between text-indigo-400 font-black text-sm tracking-wider">
+                              <span>MULAI UJIAN CBT</span>
+                              <div className="p-2 bg-indigo-500/10 rounded-full group-hover:bg-indigo-500 text-white group-hover:translate-x-1.5 transition-all duration-300 shadow-sm border border-indigo-500/20">
+                                  <ChevronRight size={16} />
+                              </div>
+                          </div>
+                      </motion.div>
+
+                      {/* CARD BABAK II */}
+                      <motion.div 
+                          initial={{ opacity: 0, x: 30 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          whileHover={{ scale: 1.03 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                          onMouseEnter={() => soundFx.playTick()}
+                          onClick={() => {
+                              soundFx.playBell();
+                              setView('regu_bell');
+                          }}
+                          className="group relative cursor-pointer bg-gradient-to-b from-slate-900/90 to-slate-950/90 border-2 border-amber-500/30 hover:border-amber-500 rounded-3xl p-6 md:p-8 shadow-xl flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-[0_0_50px_rgba(245,158,11,0.25)] h-[360px]"
+                      >
+                          {/* Top lighting effect */}
+                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-80" />
+                          <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all duration-500" />
+
+                          <div className="space-y-6">
+                              {/* Glowing Icon Container */}
+                              <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/30 group-hover:bg-amber-500/20 transition-all group-hover:scale-110 duration-300 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                                  <Bell size={32} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
+                              </div>
+
+                              <div>
+                                  <span className="text-[11px] font-black uppercase text-amber-400 tracking-widest block mb-1">
+                                      KOMPETISI REBUTAN / INTERAKTIF
+                                  </span>
+                                  <h3 className="text-2xl font-black text-white group-hover:text-amber-300 transition-colors">
+                                      BABAK II
+                                  </h3>
+                                  <p className="text-xs text-slate-400 font-medium mt-1">
+                                      Cerdas Cermat (Smart Buzzer)
+                                  </p>
+                              </div>
+
+                              {/* Features checklist */}
+                              <ul className="space-y-2 text-xs font-semibold text-slate-400">
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                      Layar Bel Regu LCC Interaktif
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                      Sistem Lock Bel / Buzzer Instant
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                      Live Synchronized Scoreboard
+                                  </li>
+                              </ul>
+                          </div>
+
+                          {/* Futuristic action button */}
+                          <div className="pt-4 border-t border-slate-900 flex items-center justify-between text-amber-400 font-black text-sm tracking-wider">
+                              <span>BUKA LAYAR BEL LCC</span>
+                              <div className="p-2 bg-amber-500/10 rounded-full group-hover:bg-amber-500 text-slate-950 group-hover:translate-x-1.5 transition-all duration-300 shadow-sm border border-amber-500/20">
+                                  <ChevronRight size={16} />
+                              </div>
+                          </div>
+                      </motion.div>
+                  </div>
+              </main>
+
+              {/* FOOTER AREA */}
+              <footer className="relative z-10 px-6 py-6 border-t border-slate-900 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-950/80">
                   <button 
                       onClick={() => {
                           localStorage.removeItem('cbt_user');
@@ -417,11 +597,16 @@ function App() {
                           setCurrentUser(null);
                           setView('login');
                       }}
-                      className="mt-12 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors inline-flex items-center gap-2"
+                      onMouseEnter={() => soundFx.playTick()}
+                      className="text-xs font-bold text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 px-4 py-2 rounded-full inline-flex items-center gap-2 border border-transparent hover:border-rose-500/20 active:scale-95"
                   >
-                      <LogOut size={16} /> Kembali ke Login
+                      <LogOut size={14} /> Keluar & Kembali ke Login
                   </button>
-              </div>
+
+                  <div className="text-center md:text-right text-[10px] md:text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                      {footerCopyright} — {footerInfo}
+                  </div>
+              </footer>
           </div>
       );
   }
