@@ -5,6 +5,7 @@ import { Monitor, Search, PlayCircle, Key, CheckCircle2, RefreshCw, Filter, User
 import { api } from '../../src/services/api';
 import { User } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { getSchoolOnly } from '../../utils/adminHelpers';
 
 const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
     const { showToast } = useToast();
@@ -20,7 +21,7 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
     const onlyStudents = useMemo(() => students.filter(s => s.role === 'siswa'), [students]);
 
     const uniqueSchools = useMemo<string[]>(() => { 
-        const schools = new Set(onlyStudents.map(s => s.school).filter(Boolean)); 
+        const schools = new Set(onlyStudents.map(s => getSchoolOnly(s.school)).filter(Boolean)); 
         return Array.from(schools).sort() as string[]; 
     }, [onlyStudents]);
 
@@ -55,7 +56,7 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
             } 
             
             let matchFilter = true; 
-            if (filterSchool !== 'all') matchFilter = matchFilter && s.school === filterSchool; 
+            if (filterSchool !== 'all') matchFilter = matchFilter && (s.school === filterSchool || getSchoolOnly(s.school) === filterSchool); 
             if (filterKecamatan !== 'all') matchFilter = matchFilter && (s.kecamatan || '').toLowerCase() === filterKecamatan.toLowerCase(); 
             if (filterClass !== 'all') matchFilter = matchFilter && sClass === filterClass;
 
@@ -180,7 +181,7 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
                                         {/* UPDATED: Display Class direct from DB */}
                                         {s.kelas || '-'}
                                     </td>
-                                    <td className="p-3 md:p-5 text-slate-600 font-bold">{s.school}</td>
+                                    <td className="p-3 md:p-5 text-slate-600 font-bold">{getSchoolOnly(s.school)}</td>
                                     <td className="p-3 md:p-5 text-slate-500 uppercase tracking-wide text-[10px]">{s.kecamatan || '-'}</td>
                                     <td className="p-3 md:p-5 text-center">{renderStatusBadge(s.status)}</td>
                                     <td className="p-3 md:p-5 text-center">

@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { School, Users, PlayCircle, CheckCircle2, AlertCircle, Key, Activity, Calendar, MapPin, Clock, Database, BookOpen, UserX, Search, BarChart3, Filter, ChevronDown, ChevronUp, UserCog, Shield } from 'lucide-react';
 import { User } from '../../types';
-import { SimpleDonutChart } from '../../utils/adminHelpers';
+import { SimpleDonutChart, getSchoolOnly } from '../../utils/adminHelpers';
 
 interface OverviewTabProps {
     dashboardData: any;
@@ -95,7 +95,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
     // Extract Unique Schools for Filter
     const uniqueSchoolList = useMemo(() => {
         if (!studentUsers) return [];
-        const schools = new Set(studentUsers.map((u: any) => u.school).filter((s: any) => s && s !== '-' && s.trim() !== ''));
+        const schools = new Set(studentUsers.map((u: any) => getSchoolOnly(u.school)).filter((s: any) => s && s !== '-' && s.trim() !== ''));
         return Array.from(schools).sort();
     }, [studentUsers]);
 
@@ -118,7 +118,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
         const groupMap: Record<string, { name: string, examType: string, kecamatan: string, total: number, offline: number, login: number, working: number, finished: number }> = {};
 
         studentUsers.forEach((u: any) => {
-            const schoolName = u.school || 'Tanpa Sekolah';
+            const schoolName = getSchoolOnly(u.school || 'Tanpa Sekolah');
             const examType = u.exam_type || '-';
             const groupKey = `${schoolName}_${examType}`; // Unique key
             
@@ -411,7 +411,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                             
                             // REALTIME DATA LOOKUP (Ensure School implies Kecamatan)
                             const userDetail = userLookup[log.username];
-                            const currentSchool = userDetail?.school || log.school || '-';
+                            const currentSchool = getSchoolOnly(userDetail?.school || log.school || '-');
                             const currentKecamatan = userDetail?.kecamatan || log.kecamatan || '-';
                             const currentName = userDetail?.fullname || log.fullname || log.username;
 
@@ -548,7 +548,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                         <td className="p-4 text-center font-bold text-indigo-600 bg-indigo-50/20">{stat.examType}</td>
                                         <td className="p-4 font-bold text-slate-700">
-                                            {stat.name}
+                                            {getSchoolOnly(stat.name)}
                                             <div className="text-[10px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">
                                                 {stat.kecamatan}
                                             </div>

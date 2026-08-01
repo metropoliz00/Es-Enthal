@@ -4,7 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { Group, Search, Save, Loader2, Filter, Target, ListChecks, ArrowDownAZ, ArrowUpZA } from 'lucide-react';
 import { api } from '../../src/services/api';
 import { User, Exam, LearningObjective } from '../../types';
-import { getSubjects, getExamTypes, getExamSubjectMapping } from '../../utils/adminHelpers';
+import { getSubjects, getExamTypes, getExamSubjectMapping, getSchoolOnly } from '../../utils/adminHelpers';
 
 const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
     const { showToast } = useToast();
@@ -61,7 +61,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     }, [students]);
 
     const uniqueSchools = useMemo(() => {
-        const schools = new Set(studentList.map(s => s.school).filter(Boolean));
+        const schools = new Set(studentList.map(s => getSchoolOnly(s.school)).filter(Boolean));
         return Array.from(schools).sort() as string[];
     }, [studentList]);
 
@@ -128,7 +128,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
             }
             
             let matchFilter = true;
-            if (filterSchool !== 'all') matchFilter = matchFilter && s.school === filterSchool;
+            if (filterSchool !== 'all') matchFilter = matchFilter && (s.school === filterSchool || getSchoolOnly(s.school) === filterSchool);
             if (filterKecamatan !== 'all') matchFilter = matchFilter && (s.kecamatan || '').toLowerCase() === filterKecamatan.toLowerCase();
             if (filterClass !== 'all') matchFilter = matchFilter && (s.kelas || '') === filterClass;
 
@@ -376,7 +376,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
                                 <td className="p-4 font-mono text-slate-500 font-bold">{s.username}</td>
                                 <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
                                 <td className="p-4 text-center">{s.kelas || '-'}</td>
-                                <td className="p-4 text-slate-600">{s.school}</td>
+                                <td className="p-4 text-slate-600">{getSchoolOnly(s.school)}</td>
                                 <td className="p-4 text-slate-600">{s.kecamatan || '-'}</td>
                                 <td className="p-4 text-center">
                                     <span className={`px-2 py-1 rounded text-xs font-bold ${s.active_exam && s.active_exam !== '-' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>

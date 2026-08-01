@@ -3,6 +3,7 @@ import { api } from '../../src/services/api';
 import { SchoolSchedule } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { Save, Plus, Trash2, Calendar, Clock } from 'lucide-react';
+import { getSchoolOnly } from '../../utils/adminHelpers';
 
 const AturGelombangTab = ({ students = [] }: { students?: any[] }) => {
     const [schedules, setSchedules] = useState<SchoolSchedule[]>([]);
@@ -11,8 +12,8 @@ const AturGelombangTab = ({ students = [] }: { students?: any[] }) => {
 
     // Extract Unique Schools from Students
     const uniqueSchools = React.useMemo(() => {
-        const schools = new Set(students.filter(s => s.role === 'siswa' && s.school).map(s => s.school));
-        return Array.from(schools).sort();
+        const schools = new Set(students.filter(s => s.role === 'siswa' && s.school).map(s => getSchoolOnly(s.school)));
+        return Array.from(schools).sort() as string[];
     }, [students]);
 
     // Map School to Kecamatan
@@ -21,6 +22,7 @@ const AturGelombangTab = ({ students = [] }: { students?: any[] }) => {
         students.forEach(s => {
             if (s.school && s.kecamatan) {
                 map[s.school] = s.kecamatan;
+                map[getSchoolOnly(s.school)] = s.kecamatan;
             }
         });
         return map;
@@ -108,7 +110,7 @@ const AturGelombangTab = ({ students = [] }: { students?: any[] }) => {
                                             ))}
                                             {/* Keep existing value if not in list (e.g. manual entry from before) */}
                                             {s.school && !uniqueSchools.includes(s.school) && (
-                                                <option value={s.school}>{s.school}</option>
+                                                <option value={s.school}>{getSchoolOnly(s.school)}</option>
                                             )}
                                         </select>
                                     </td>

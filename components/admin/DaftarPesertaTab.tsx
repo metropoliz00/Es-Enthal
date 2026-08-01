@@ -18,6 +18,7 @@ interface DaftarPesertaTabProps {
 const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchUser }: DaftarPesertaTabProps) => {
     const { showToast } = useToast();
     const [users, setUsers] = useState<any[]>([]);
+    const [appConfig, setAppConfig] = useState<Record<string, string>>({});
     const [deleteUserConfirm, setDeleteUserConfirm] = useState<string | null>(null);
     const [loginAsTargetUser, setLoginAsTargetUser] = useState<any | null>(null);
     const [examTypes, setExamTypes] = useState<{ id: string, label: string }[]>([]);
@@ -64,6 +65,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
     const loadExamTypes = async () => {
         try {
             const config = await api.getAppConfig();
+            setAppConfig(config);
             const types = getExamTypes(config);
             setExamTypes(types);
         } catch (e) {
@@ -534,8 +536,23 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                              <td className="p-3 border-r border-slate-100 font-mono text-slate-400 font-bold">{u.display_id}</td>
                              <td className="p-3 border-r border-slate-100 text-center">
                                  <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto text-slate-400">
-                                    {u.photo_url ? <img src={u.photo_url} className="w-full h-full object-cover" /> : <UserIcon size={16} />}
-                                </div>
+                                     {(() => {
+                                         const isBeregu = isBereguExamType(u.exam_type);
+                                         const logoRegu = u.photo_url || appConfig['LOGO_SEKOLAH'] || appConfig['LOGO_KABUPATEN'];
+                                         if (isBeregu) {
+                                             return logoRegu ? (
+                                                 <img src={logoRegu} className="w-full h-full object-contain p-0.5" alt="Logo Regu" />
+                                             ) : (
+                                                 <UserIcon size={16} />
+                                             );
+                                         }
+                                         return u.photo_url ? (
+                                             <img src={u.photo_url} className="w-full h-full object-cover" alt="Foto" />
+                                         ) : (
+                                             <UserIcon size={16} />
+                                         );
+                                     })()}
+                                 </div>
                              </td>
                              <td className="p-3 border-r border-slate-100 font-mono text-indigo-600 font-bold">{u.username}</td>
                              <td className="p-3 border-r border-slate-100 font-mono text-slate-400">{u.password || '***'}</td>
@@ -600,13 +617,35 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                 <div className="flex items-center gap-6">
                                     <div className="relative group shrink-0">
                                         <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-200 flex items-center justify-center text-slate-400">
-                                            {formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" /> : <UserIcon size={40} className="text-slate-300" />}
+                                            {(() => {
+                                                const isBeregu = isBereguExamType(formData.exam_type);
+                                                const defaultLogo = appConfig['LOGO_SEKOLAH'] || appConfig['LOGO_KABUPATEN'];
+                                                const displayImg = formData.photo || formData.photo_url || (isBeregu ? defaultLogo : '');
+                                                if (displayImg) {
+                                                    return <img src={displayImg} className={`w-full h-full ${isBeregu ? 'object-contain p-1' : 'object-cover'}`} alt="Foto/Logo" />;
+                                                }
+                                                return <UserIcon size={40} className="text-slate-300" />;
+                                            })()}
                                         </div>
-                                        <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-indigo-700 shadow-md border-2 border-white"><Upload size={12}/><input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleImageChange} /></label>
+                                        <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-indigo-700 shadow-md border-2 border-white" title="Unggah File Foto/Logo"><Upload size={12}/><input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleImageChange} /></label>
                                     </div>
-                                    <div className="flex-1">
-                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">ID (Otomatis)</label>
-                                        <input disabled type="text" className="w-full p-3 bg-slate-100 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-500 font-mono" value={formData.display_id || 'Otomatis'} />
+                                    <div className="flex-1 space-y-2">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">ID (Otomatis)</label>
+                                            <input disabled type="text" className="w-full p-2.5 bg-slate-100 border-2 border-slate-200 rounded-xl text-xs font-bold text-slate-500 font-mono" value={formData.display_id || 'Otomatis'} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">
+                                                {isBereguExamType(formData.exam_type) ? 'URL Logo Regu (Opsional)' : 'URL Foto (Opsional)'}
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full p-2 bg-white border-2 border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:border-indigo-500" 
+                                                value={formData.photo_url || ''} 
+                                                onChange={e => setFormData({ ...formData, photo_url: e.target.value })} 
+                                                placeholder="https://..." 
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
