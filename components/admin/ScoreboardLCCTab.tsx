@@ -13,6 +13,7 @@ import { soundFx } from '../../utils/scoreboardAudio';
 import { useToast } from '../../context/ToastContext';
 import { User } from '../../types';
 import { api } from '../../src/services/api';
+import { TeamMemberBadge, parseTeamAndMembers, syncTeamsWithParticipants } from '../../utils/adminHelpers';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 export interface LccTeam {
@@ -299,9 +300,15 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     await api.saveLccConfig(DEFAULT_CONFIG);
                 }
 
-                const dbTeams = await api.getLccTeams();
+                const [dbTeams, usersData] = await Promise.all([
+                    api.getLccTeams(),
+                    api.getUsers()
+                ]);
+                const students = usersData ? usersData.filter((u: any) => u.role?.toLowerCase() === 'siswa') : [];
+
                 if (dbTeams && dbTeams.length > 0) {
-                    setTeams(dbTeams);
+                    const synced = syncTeamsWithParticipants(dbTeams, students);
+                    setTeams(synced);
                 } else {
                     setTeams(DEFAULT_TEAMS);
                     await api.saveLccTeams(DEFAULT_TEAMS);
@@ -404,12 +411,17 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     });
                 }
 
-                const dbTeams = await api.getLccTeams();
-                if (dbTeams) {
-                    const dbTeamsStr = JSON.stringify(dbTeams);
+                const [dbTeams, usersData] = await Promise.all([
+                    api.getLccTeams(),
+                    api.getUsers()
+                ]);
+                if (dbTeams && usersData) {
+                    const students = usersData.filter((u: any) => u.role?.toLowerCase() === 'siswa');
+                    const synced = syncTeamsWithParticipants(dbTeams, students);
+                    const dbTeamsStr = JSON.stringify(synced);
                     setTeams(prev => {
                         if (JSON.stringify(prev) !== dbTeamsStr) {
-                            return dbTeams;
+                            return synced;
                         }
                         return prev;
                     });
@@ -617,10 +629,17 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     const score = studentScores[regu.username] || 0;
                     const schoolName = regu.school || regu.kelas_id || 'Sekolah';
                     
-                    let cleanTeamName = regu.username.toUpperCase().replace(/_/g, ' ');
-                    if (!cleanTeamName.includes('REGU') && !cleanTeamName.includes('TEAM')) {
+                    const rawFullName = (regu.fullname || regu.nama_lengkap || regu.username || '').trim();
+                    const { reguTitle, members: extractedMembers } = parseTeamAndMembers(rawFullName);
+                    
+                    let cleanTeamName = reguTitle;
+                    if (!cleanTeamName.toUpperCase().includes('REGU') && !cleanTeamName.toUpperCase().includes('TEAM')) {
                         cleanTeamName = `REGU ${cleanTeamName}`;
                     }
+
+                    const finalMembers = extractedMembers.length > 0 
+                        ? extractedMembers 
+                        : (regu.members && Array.isArray(regu.members) && regu.members.length > 0 ? regu.members : [rawFullName]);
 
                     generatedCandidates.push({
                         id: `team_${regu.username}`,
@@ -631,7 +650,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                         logo: regu.photo_url || '',
                         correctCount: 0,
                         wrongCount: 0,
-                        members: [regu.fullname || regu.nama_lengkap || regu.username]
+                        members: finalMembers
                     });
                     teamIndex++;
                 });
@@ -737,10 +756,17 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                     const score = studentScores[regu.username] || 0;
                     const schoolName = regu.school || regu.kelas_id || 'Sekolah';
                     
-                    let cleanTeamName = regu.username.toUpperCase().replace(/_/g, ' ');
-                    if (!cleanTeamName.includes('REGU') && !cleanTeamName.includes('TEAM')) {
+                    const rawFullName = (regu.fullname || regu.nama_lengkap || regu.username || '').trim();
+                    const { reguTitle, members: extractedMembers } = parseTeamAndMembers(rawFullName);
+                    
+                    let cleanTeamName = reguTitle;
+                    if (!cleanTeamName.toUpperCase().includes('REGU') && !cleanTeamName.toUpperCase().includes('TEAM')) {
                         cleanTeamName = `REGU ${cleanTeamName}`;
                     }
+
+                    const finalMembers = extractedMembers.length > 0 
+                        ? extractedMembers 
+                        : (regu.members && Array.isArray(regu.members) && regu.members.length > 0 ? regu.members : [rawFullName]);
 
                     newTeams.push({
                         id: `team_${regu.username}`,
@@ -751,7 +777,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                         logo: regu.photo_url || '',
                         correctCount: 0,
                         wrongCount: 0,
-                        members: [regu.fullname || regu.nama_lengkap || regu.username]
+                        members: finalMembers
                     });
                     teamIndex++;
                 });
@@ -1561,7 +1587,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     )}
 
                                     {/* CARD HEADER */}
-                                    <div className="text-center pt-2">
+                                    <div className="text-center pt-2 flex flex-col items-center">
                                         <div className={`mx-auto mb-2 rounded-2xl bg-white/10 p-2 border border-white/20 flex items-center justify-center overflow-hidden shadow-inner ${
                                             isQuestionActiveOnProjector ? 'w-10 h-10' : 'w-14 h-14 md:w-16 md:h-16'
                                         }`}>
@@ -1571,12 +1597,17 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                 <Users size={isQuestionActiveOnProjector ? 20 : 32} style={{ color: team.color }} />
                                             )}
                                         </div>
-                                        <h2 className={`font-black tracking-tight text-white uppercase drop-shadow-sm ${
-                                            isQuestionActiveOnProjector ? 'text-base md:text-lg' : 'text-lg md:text-2xl'
-                                        }`} style={{ color: team.color }}>
-                                            {getTeamNameOnly(team)}
-                                        </h2>
-                                        <p className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">
+                                        
+                                        <TeamMemberBadge 
+                                            rawName={team.name} 
+                                            members={team.members} 
+                                            theme="dark" 
+                                            size={isQuestionActiveOnProjector ? "sm" : "md"} 
+                                            align="center"
+                                            customColor={team.color}
+                                        />
+
+                                        <p className="text-[10px] font-semibold text-slate-400 truncate mt-1">
                                             {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
                                         </p>
                                     </div>
@@ -2171,17 +2202,22 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                     >
                                         {/* HEADER */}
                                         <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-                                            <div>
-                                                <h3 className="font-black text-lg text-slate-800" style={{ color: team.color }}>
-                                                    {getTeamNameOnly(team)}
-                                                </h3>
-                                                <p className="text-xs font-semibold text-slate-400 truncate">
+                                            <div className="flex-1 mr-2">
+                                                <TeamMemberBadge 
+                                                    rawName={team.name} 
+                                                    members={team.members} 
+                                                    theme="indigo" 
+                                                    size="md" 
+                                                    align="left"
+                                                    customColor={team.color}
+                                                />
+                                                <p className="text-xs font-semibold text-slate-400 truncate mt-1">
                                                     {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
                                                 </p>
                                             </div>
                                             <button 
                                                 onClick={() => resetScoreTeam(team.id)} 
-                                                className="text-slate-300 hover:text-rose-600 transition p-1"
+                                                className="text-slate-300 hover:text-rose-600 transition p-1 shrink-0"
                                                 title="Riset Skor Regu Ini"
                                             >
                                                 <RotateCcw size={14}/>
@@ -3337,15 +3373,8 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                                     className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                                                 />
                                                 <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-black text-xs text-slate-800 uppercase" style={{ color: c.color }}>{c.name}</span>
-                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">{c.school}</span>
-                                                    </div>
-                                                    {c.members && c.members.length > 0 && (
-                                                        <p className="text-[11px] text-slate-500 mt-1">
-                                                            Anggota: {c.members.join(', ')}
-                                                        </p>
-                                                    )}
+                                                    <TeamMemberBadge rawName={c.name} members={c.members} theme="indigo" size="sm" align="left" customColor={c.color} />
+                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 mt-1 inline-block">{c.school}</span>
                                                 </div>
                                             </div>
                                             <div className="text-right shrink-0">

@@ -5,7 +5,7 @@ import { Users, FileText, Download, Upload, Loader2, Plus, Search, Edit, Trash2,
 import { api } from '../../src/services/api';
 import { User } from '../../types';
 import * as XLSX from 'xlsx';
-import { exportToExcel, getExamTypes, isBereguExamType } from '../../utils/adminHelpers';
+import { exportToExcel, getExamTypes, isBereguExamType, TeamMemberBadge } from '../../utils/adminHelpers';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface DaftarPesertaTabProps {
@@ -540,11 +540,10 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                              <td className="p-3 border-r border-slate-100 font-mono text-indigo-600 font-bold">{u.username}</td>
                              <td className="p-3 border-r border-slate-100 font-mono text-slate-400">{u.password || '***'}</td>
                              <td className="p-3 border-r border-slate-100 font-bold text-slate-700">
-                                 {u.fullname}
-                                 {isBereguExamType(u.exam_type) && (
-                                     <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                         <Users size={10}/> Regu LCC
-                                     </span>
+                                 {isBereguExamType(u.exam_type) ? (
+                                     <TeamMemberBadge rawName={u.fullname} theme="indigo" size="sm" align="left" />
+                                 ) : (
+                                     u.fullname
                                  )}
                              </td>
                              <td className="p-3 border-r border-slate-100 text-center font-bold text-slate-500">{u.gender || 'L'}</td>

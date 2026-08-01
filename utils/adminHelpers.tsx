@@ -172,6 +172,154 @@ export const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, 
     );
 };
 
+export interface ParsedTeamInfo {
+    reguTitle: string;
+    members: string[];
+}
+
+export const formatTwoWords = (name: string): string => {
+    if (!name) return '';
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.startsWith('.')) return cleanName;
+    const words = cleanName.split(/\s+/).filter(Boolean);
+    if (words.length <= 2) return words.join(' ');
+    return words.slice(0, 2).join(' ');
+};
+
+export const parseTeamAndMembers = (rawName?: string, membersArray?: string[]): ParsedTeamInfo => {
+    let reguTitle = (rawName || '').trim();
+    let members: string[] = membersArray && Array.isArray(membersArray) && membersArray.length > 0 ? [...membersArray] : [];
+
+    if (reguTitle.includes('|')) {
+        const parts = reguTitle.split('|').map(p => p.trim()).filter(Boolean);
+        if (parts.length > 0) {
+            reguTitle = parts[0];
+            if (members.length === 0 && parts.length > 1) {
+                members = parts.slice(1);
+            }
+        }
+    }
+
+    if (!reguTitle) reguTitle = 'REGU';
+
+    const formattedMembers = members.map(m => formatTwoWords(m)).filter(Boolean);
+
+    return { reguTitle, members: formattedMembers };
+};
+
+export const syncTeamsWithParticipants = (teams: any[], students: any[]): any[] => {
+    if (!students || students.length === 0 || !teams || teams.length === 0) return teams;
+
+    const studentMapByUname: Record<string, any> = {};
+    const studentMapByName: Record<string, any> = {};
+
+    students.forEach(s => {
+        const uname = (s.username || '').toLowerCase().trim();
+        const fname = (s.fullname || s.nama_lengkap || '').toLowerCase().trim();
+        if (uname) studentMapByUname[uname] = s;
+        if (fname) studentMapByName[fname] = s;
+    });
+
+    return teams.map(team => {
+        const cleanTeamId = String(team.id).toLowerCase().replace(/^team_/, '').trim();
+        let matchedStudent = studentMapByUname[cleanTeamId] || studentMapByUname[String(team.id).toLowerCase().trim()];
+
+        if (!matchedStudent) {
+            const cleanTeamName = String(team.name).toLowerCase().trim();
+            matchedStudent = studentMapByName[cleanTeamName];
+        }
+
+        if (matchedStudent) {
+            const rawFullName = (matchedStudent.fullname || matchedStudent.nama_lengkap || matchedStudent.username || '').trim();
+            if (rawFullName) {
+                const { reguTitle, members: extractedMembers } = parseTeamAndMembers(rawFullName);
+                
+                let cleanTeamName = reguTitle;
+                if (!cleanTeamName.toUpperCase().includes('REGU') && !cleanTeamName.toUpperCase().includes('TEAM')) {
+                    cleanTeamName = `REGU ${cleanTeamName}`;
+                }
+
+                const rawMembersList = extractedMembers.length > 0 
+                    ? extractedMembers 
+                    : (matchedStudent.members && Array.isArray(matchedStudent.members) && matchedStudent.members.length > 0
+                        ? matchedStudent.members
+                        : (team.members && team.members.length > 0 ? team.members : []));
+
+                const finalMembers = rawMembersList.map((m: string) => formatTwoWords(m)).filter(Boolean);
+
+                return {
+                    ...team,
+                    name: cleanTeamName,
+                    members: finalMembers,
+                    school: matchedStudent.school || matchedStudent.kelas_id || team.school
+                };
+            }
+        }
+        return team;
+    });
+};
+
+export const TeamMemberBadge: React.FC<{
+    rawName?: string;
+    members?: string[];
+    theme?: 'light' | 'dark' | 'amber' | 'indigo';
+    size?: 'sm' | 'md' | 'lg';
+    align?: 'left' | 'center';
+    customColor?: string;
+}> = ({ rawName, members, theme = 'light', size = 'md', align = 'left', customColor }) => {
+    const parsed = parseTeamAndMembers(rawName, members);
+    const isDark = theme === 'dark';
+    const alignClass = align === 'center' ? 'items-center text-center justify-center' : 'items-start text-left';
+
+    const titleSizeClass = 
+        size === 'sm' ? 'text-[11px] px-2 py-0.5' :
+        size === 'lg' ? 'text-base md:text-lg px-3.5 py-1' :
+        'text-xs md:text-sm px-2.5 py-1';
+
+    const memberSizeClass = 
+        size === 'sm' ? 'text-[9px] px-1.5 py-0.5' :
+        size === 'lg' ? 'text-xs md:text-sm px-2.5 py-1' :
+        'text-[10px] md:text-xs px-2 py-0.5';
+
+    let titleBg = 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white';
+    if (theme === 'amber') titleBg = 'bg-gradient-to-r from-amber-500 to-orange-500 text-white';
+    if (theme === 'dark') titleBg = 'bg-slate-800 text-amber-300 border border-slate-700 shadow-inner';
+
+    let memberBg = isDark 
+        ? 'bg-slate-800/90 text-slate-200 border-slate-700/80 hover:bg-slate-800' 
+        : 'bg-indigo-50/80 text-indigo-800 border-indigo-100 hover:bg-indigo-100/60';
+
+    return (
+        <div className={`flex flex-col ${alignClass} gap-1.5 max-w-full`}>
+            {/* REGU BADGE ON TOP */}
+            <div className="inline-flex items-center gap-1.5 flex-wrap">
+                <span 
+                    style={customColor ? { backgroundColor: customColor } : undefined}
+                    className={`font-black rounded-lg uppercase tracking-wide inline-flex items-center gap-1.5 shadow-sm ${titleBg} ${titleSizeClass}`}
+                >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/90 animate-pulse"></span>
+                    {parsed.reguTitle}
+                </span>
+            </div>
+
+            {/* MEMBER STUDENT NAMES BELOW WITH BACKGROUND DECORATIONS */}
+            {parsed.members.length > 0 && (
+                <div className={`flex flex-wrap gap-1 ${align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                    {parsed.members.map((member, idx) => (
+                        <span 
+                            key={idx} 
+                            className={`inline-flex items-center gap-1 rounded-md font-bold border transition shadow-2xs ${memberBg} ${memberSizeClass}`}
+                        >
+                            <span className="text-[9px] opacity-60 font-mono">{idx + 1}.</span>
+                            {member}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const DashboardSkeleton = () => (
     <div className="animate-pulse space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

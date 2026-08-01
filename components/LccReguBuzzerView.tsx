@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Trophy, Volume2, ShieldAlert, CheckCircle2, RefreshCw, Zap, VolumeX, Maximize2, Users, ArrowLeft, Radio } from 'lucide-react';
 import { soundFx } from '../utils/scoreboardAudio';
+import { TeamMemberBadge } from '../utils/adminHelpers';
 import { User } from '../types';
 import { api } from '../src/services/api';
 import { useToast } from '../context/ToastContext';
@@ -301,12 +302,17 @@ export const LccReguBuzzerView: React.FC<LccReguBuzzerViewProps> = ({ currentUse
                 </div>
 
                 {/* REGU IDENTITY INFO CARD BELOW BELL */}
-                <div className="mt-8 bg-slate-900/90 border-2 border-slate-800 p-4 rounded-2xl max-w-sm w-full text-center shadow-xl backdrop-blur-md">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                        <Users size={16} style={{ color: activeTeam.color }} />
-                        <h2 className="font-black text-lg text-white tracking-tight" style={{ color: activeTeam.color }}>
-                            {activeTeam.name}
-                        </h2>
+                <div className="mt-8 bg-slate-900/90 border-2 border-slate-800 p-4 rounded-2xl max-w-sm w-full text-center shadow-xl backdrop-blur-md flex flex-col items-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Users size={18} style={{ color: activeTeam.color }} />
+                        <TeamMemberBadge 
+                            rawName={activeTeam.name} 
+                            members={activeTeam.members} 
+                            theme="dark" 
+                            size="md" 
+                            align="center"
+                            customColor={activeTeam.color} 
+                        />
                     </div>
                     <p className="text-xs text-slate-400 font-medium">{activeTeam.school || 'SD NEGERI'}</p>
                     

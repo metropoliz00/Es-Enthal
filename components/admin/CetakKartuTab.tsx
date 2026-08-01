@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Printer, RefreshCw, ChevronDown, ChevronUp, ArrowDownAZ, ArrowUpZA } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../src/services/api';
-import { getSubjects, isBereguExamType } from '../../utils/adminHelpers';
+import { getSubjects, isBereguExamType, parseTeamAndMembers, formatTwoWords } from '../../utils/adminHelpers';
 import { useToast } from '../../context/ToastContext';
 
 const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User, students: any[], schedules: any[] }) => {
@@ -109,13 +109,12 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
             let nameRowsHtml = '';
             
             if (isBeregu) {
-                const parts = (s.fullname || '').split('|').map((p: string) => p.trim());
-                const teamName = parts[0] || '';
-                const m1 = parts[1] || '..................';
-                const m2 = parts[2] || '..................';
-                const m3 = parts[3] || '..................';
+                const { reguTitle, members } = parseTeamAndMembers(s.fullname);
+                const m1 = members[0] ? formatTwoWords(members[0]) : '..................';
+                const m2 = members[1] ? formatTwoWords(members[1]) : '..................';
+                const m3 = members[2] ? formatTwoWords(members[2]) : '..................';
                 nameRowsHtml = `
-                    <tr><td width="65">Nama Regu</td><td>: <b>${teamName}</b></td></tr>
+                    <tr><td width="65">Nama Regu</td><td>: <b>${reguTitle}</b></td></tr>
                     <tr><td>Anggota</td><td>: <span style="font-size: 7.2pt; color: #333; line-height: 1.25;">1. ${m1}<br>2. ${m2}<br>3. ${m3}</span></td></tr>
                 `;
             } else {
@@ -358,14 +357,22 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                                     <table className="w-full text-[11px] leading-[1.25]">
                                         <tbody>
                                             {isBereguExamType(s.exam_type) ? (
-                                                <>
-                                                    <tr><td className="w-16">Nama Regu</td><td>: <b>{(s.fullname || '').split('|')[0]?.trim()}</b></td></tr>
-                                                    <tr><td>Anggota</td><td>: <span style={{ fontSize: '7.2pt', color: '#333', lineHeight: '1.25' }}>
-                                                        1. {(s.fullname || '').split('|')[1]?.trim() || '..................'}<br/>
-                                                        2. {(s.fullname || '').split('|')[2]?.trim() || '..................'}<br/>
-                                                        3. {(s.fullname || '').split('|')[3]?.trim() || '..................'}
-                                                    </span></td></tr>
-                                                </>
+                                                (() => {
+                                                    const { reguTitle, members } = parseTeamAndMembers(s.fullname);
+                                                    const m1 = members[0] ? formatTwoWords(members[0]) : '..................';
+                                                    const m2 = members[1] ? formatTwoWords(members[1]) : '..................';
+                                                    const m3 = members[2] ? formatTwoWords(members[2]) : '..................';
+                                                    return (
+                                                        <>
+                                                            <tr><td className="w-16">Nama Regu</td><td>: <b>{reguTitle}</b></td></tr>
+                                                            <tr><td>Anggota</td><td>: <span style={{ fontSize: '7.2pt', color: '#333', lineHeight: '1.25' }}>
+                                                                1. {m1}<br/>
+                                                                2. {m2}<br/>
+                                                                3. {m3}
+                                                            </span></td></tr>
+                                                        </>
+                                                    );
+                                                })()
                                             ) : (
                                                 <tr><td className="w-16">Nama</td><td>: <b>{s.fullname}</b></td></tr>
                                             )}

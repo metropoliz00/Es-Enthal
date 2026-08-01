@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Award, FileText, Loader2, BookOpen, Filter, Trophy, Users, Star } from 'lucide-react';
 import { api } from '../../src/services/api';
-import { exportToExcel, getPredicateBadge } from '../../utils/adminHelpers';
+import { exportToExcel, getPredicateBadge, TeamMemberBadge, syncTeamsWithParticipants } from '../../utils/adminHelpers';
 import { motion } from 'motion/react';
 
 const RankingTab = ({ students }: { students: any[] }) => {
@@ -129,7 +129,9 @@ const RankingTab = ({ students }: { students: any[] }) => {
             }
         });
 
-        const computed = lccTeams.map(team => {
+        const syncedLccTeams = syncTeamsWithParticipants(lccTeams, students);
+
+        const computed = syncedLccTeams.map(team => {
             let babak1Score = 0;
             const babak2Score = parseFloat(team.score) || 0;
             
@@ -428,24 +430,10 @@ const RankingTab = ({ students }: { students: any[] }) => {
                                                 </div>
                                             </td>
                                             <td className="p-3 md:p-4 max-w-xs md:max-w-md">
-                                                <div className="flex items-center gap-2">
-                                                    {i < 3 && <Star size={14} className="text-amber-500 fill-amber-400 animate-pulse shrink-0"/>}
-                                                    <div className="font-extrabold text-slate-800 text-xs md:text-sm capitalize leading-tight">
-                                                        {d.name}
-                                                    </div>
+                                                <div className="flex items-start gap-2">
+                                                    {i < 3 && <Star size={18} className="text-amber-500 fill-amber-400 animate-pulse shrink-0 mt-1"/>}
+                                                    <TeamMemberBadge rawName={d.name} members={d.members} theme="amber" size="md" align="left" />
                                                 </div>
-                                                {d.members && d.members.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1 mt-2.5">
-                                                        <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mr-1">
-                                                            Anggota:
-                                                        </span>
-                                                        {d.members.map((member: string, mIdx: number) => (
-                                                            <span key={mIdx} className="bg-indigo-50 text-indigo-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded border border-indigo-100/30 whitespace-nowrap">
-                                                                {member}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
                                             </td>
                                             <td className="p-3 md:p-4 text-slate-600 font-bold text-xs md:text-sm">
                                                 {d.school || '-'}
