@@ -131,6 +131,13 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
         return t.school;
     };
 
+    const getTeamNameOnly = (t: LccTeam) => {
+        if (!t.name) return '';
+        let name = t.name.split('|')[0].trim();
+        name = name.replace(/\s*\([^)]*\)/g, '').trim();
+        return name;
+    };
+
     // MODE: 'operator' | 'scoreboard'
     const [viewMode, setViewMode] = useState<'operator' | 'scoreboard'>(forceScoreboardMode ? 'scoreboard' : 'operator');
     const [showProjectorGuideModal, setShowProjectorGuideModal] = useState<boolean>(false);
@@ -1567,7 +1574,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         <h2 className={`font-black tracking-tight text-white uppercase drop-shadow-sm ${
                                             isQuestionActiveOnProjector ? 'text-base md:text-lg' : 'text-lg md:text-2xl'
                                         }`} style={{ color: team.color }}>
-                                            {team.name}
+                                            {getTeamNameOnly(team)}
                                         </h2>
                                         <p className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">
                                             {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
@@ -1873,7 +1880,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                             <div className="flex gap-2 flex-wrap">
                                                 {displayedTeams.map(t => (
                                                     <div key={t.id} className="flex items-center gap-1 bg-slate-800 p-1 px-2.5 rounded-lg border border-slate-700">
-                                                        <span className="text-xs font-bold mr-1" style={{ color: t.color }}>{t.name}:</span>
+                                                        <span className="text-xs font-bold mr-1" style={{ color: t.color }}>{getTeamNameOnly(t)}:</span>
                                                         <button
                                                             onClick={() => updateScore(t.id, currentActiveQuestion.poin || config.nilaiWajib, `Jawaban Benar Soal ${config.nomorSoal}`)}
                                                             className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10px] rounded transition flex items-center gap-1"
@@ -2166,7 +2173,7 @@ export const ScoreboardLCCTab: React.FC<ScoreboardLCCTabProps> = ({ forceScorebo
                                         <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                                             <div>
                                                 <h3 className="font-black text-lg text-slate-800" style={{ color: team.color }}>
-                                                    {team.name}
+                                                    {getTeamNameOnly(team)}
                                                 </h3>
                                                 <p className="text-xs font-semibold text-slate-400 truncate">
                                                     {getTeamSchoolOnly(team) || '-'} {getTeamGugus(team) ? `(${getTeamGugus(team)})` : ''}
