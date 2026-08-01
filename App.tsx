@@ -367,7 +367,7 @@ function App() {
   const selectedExam = examList.find(e => e.id === selectedExamId);
   const hasSession = currentUser?.session && currentUser.session !== '-' && currentUser.session.trim() !== '' && currentUser.session !== 'undefined';
 
-  const schoolName = appConfig['SCHOOL_NAME'] || "EXAMORA";
+  const schoolName = appConfig['SCHOOL_NAME'] || "EXAMORA DEVELOPMENT ASSESMENT";
   const schoolTagline = appConfig['SCHOOL_TAGLINE'] || "Digital Assessment for Future";
   const rawFooterCopyright = appConfig['FOOTER_COPYRIGHT'] || "© 2026 | Dev. MeyGa";
   const footerCopyright = rawFooterCopyright.includes("EXAMORA") ? "© 2026 | Dev. MeyGa" : rawFooterCopyright;

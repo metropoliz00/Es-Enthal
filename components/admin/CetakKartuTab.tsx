@@ -106,20 +106,38 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
         const cardsHtml = filteredStudents.map((s) => {
             const subjectLabel = s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................';
             const isBeregu = isBereguExamType(s.exam_type);
-            let nameRowsHtml = '';
+            const displayExamType = isBeregu ? 'LOMBA CERDAS CERMAT' : (s.exam_type || 'ASSESMENT SUMATIF');
+            const eventOrganizer = appConfig['SCHOOL_NAME'] || 'EXAMORA DEVELOPMENT ASSESMENT';
+            const displaySchoolHeader = isBeregu
+                ? `${eventOrganizer}${s.kecamatan && s.kecamatan !== '-' ? ` - ${s.kecamatan}` : ''}`
+                : `${s.school || '-'} - ${s.kecamatan || '-'}`;
+
+            let infoRowsHtml = '';
             
             if (isBeregu) {
                 const { reguTitle, members } = parseTeamAndMembers(s.fullname);
                 const m1 = members[0] ? formatTwoWords(members[0]) : '..................';
                 const m2 = members[1] ? formatTwoWords(members[1]) : '..................';
                 const m3 = members[2] ? formatTwoWords(members[2]) : '..................';
-                nameRowsHtml = `
+                infoRowsHtml = `
                     <tr><td width="65">Nama Regu</td><td>: <b>${reguTitle}</b></td></tr>
-                    <tr><td>Anggota</td><td>: <span style="font-size: 7.2pt; color: #333; line-height: 1.25;">1. ${m1}<br>2. ${m2}<br>3. ${m3}</span></td></tr>
+                    <tr>
+                        <td style="vertical-align: top;">Anggota</td>
+                        <td style="vertical-align: top;">: 
+                            <table style="display: inline-table; border-collapse: collapse; font-size: 7.2pt; line-height: 1.25; vertical-align: top; margin-left: 2px;">
+                                <tr><td style="width: 14px; font-weight: bold; color: #475569; vertical-align: top;">1.</td><td style="font-weight: 600; color: #0f172a; vertical-align: top;">${m1}</td></tr>
+                                <tr><td style="width: 14px; font-weight: bold; color: #475569; vertical-align: top;">2.</td><td style="font-weight: 600; color: #0f172a; vertical-align: top;">${m2}</td></tr>
+                                <tr><td style="width: 14px; font-weight: bold; color: #475569; vertical-align: top;">3.</td><td style="font-weight: 600; color: #0f172a; vertical-align: top;">${m3}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr><td>Gugus</td><td>: ${s.kelas || '-'}</td></tr>
                 `;
             } else {
-                nameRowsHtml = `
+                infoRowsHtml = `
                     <tr><td width="65">Nama</td><td>: <b>${s.fullname}</b></td></tr>
+                    <tr><td>Kelas</td><td>: ${s.kelas || '-'}</td></tr>
+                    <tr><td>Mata Pelajaran</td><td>: <b>${subjectLabel}</b></td></tr>
                 `;
             }
             
@@ -129,17 +147,15 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                     <img src="${logoLeftUrl}" class="logo" />
                     <div class="header-text">
                         <h2>KARTU PESERTA</h2>
-                        <p class="title-sub">${s.exam_type || 'ASSESMENT SUMATIF'}</p>
-                        <p class="school-name">${s.school} - ${s.kecamatan || '-'}</p>
+                        <p class="title-sub">${displayExamType}</p>
+                        <p class="school-name">${displaySchoolHeader}</p>
                     </div>
                     <img src="${logoRightUrl}" class="logo" />
                 </div>
                 <div class="card-body">
                     <div class="info-col">
                         <table class="info-table">
-                            ${nameRowsHtml}
-                            <tr><td>Kelas</td><td>: ${s.kelas || '-'}</td></tr>
-                            <tr><td>Mata Pelajaran</td><td>: <b>${subjectLabel}</b></td></tr>
+                            ${infoRowsHtml}
                             <tr><td>Sesi</td><td>: ${s.session || '-'}</td></tr>
                             <tr><td>Username</td><td>: <b>${s.username}</b></td></tr>
                             <tr><td>Password</td><td>: <b>${s.password || '-'}</b></td></tr>
@@ -147,9 +163,12 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                     </div>
                     <div class="photo-col">
                         <div class="photo-box">
-                            ${s.photo_url 
-                                ? `<img src="${s.photo_url}" style="width:100%; height:100%; object-fit:cover;" />` 
-                                : `<span style="font-size:8pt; color:#ccc; text-align:center;">FOTO<br>3x4</span>`
+                            ${isBeregu 
+                                ? `<img src="${s.photo_url || logoRightUrl}" style="width:100%; height:100%; object-fit:contain; padding:2px;" alt="Logo Regu" />`
+                                : (s.photo_url 
+                                    ? `<img src="${s.photo_url}" style="width:100%; height:100%; object-fit:cover;" />` 
+                                    : `<span style="font-size:8pt; color:#ccc; text-align:center;">FOTO<br>3x4</span>`
+                                  )
                             }
                         </div>
                     </div>
@@ -202,10 +221,10 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                         height: 15mm;
                     }
                     .logo { height: 12mm; width: auto; object-fit: contain; }
-                    .header-text { text-align: center; flex: 1; }
-                    .header-text h2 { font-size: 11pt; margin: 0; font-weight: bold; }
-                    .header-text .title-sub { font-size: 10pt; margin: 2px 0 0; font-weight: bold; }
-                    .header-text .school-name { font-size: 8pt; margin: 2px 0 0; font-style: italic; }
+                    .header-text { text-align: center; flex: 1; padding: 0 2px; }
+                    .header-text h2 { font-size: 11pt; margin: 0; font-weight: bold; line-height: 1.1; }
+                    .header-text .title-sub { font-size: 9.5pt; margin: 1px 0 0; font-weight: bold; line-height: 1.1; }
+                    .header-text .school-name { font-size: 7.5pt; margin: 1px 0 0; font-style: italic; font-weight: 600; line-height: 1.1; word-break: break-word; }
                     
                     .card-body { 
                         display: flex; 
@@ -339,65 +358,90 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
 
              <div className="border border-slate-200 rounded-lg p-4 bg-slate-100 overflow-y-auto max-h-[700px]">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 justify-center max-w-[800px] mx-auto">
-                    {displayedStudents.map((s, idx) => (
-                        <div key={idx} className="bg-white border border-slate-400 p-1.5 rounded-sm shadow-sm flex flex-col gap-1 relative text-[10px] mx-auto overflow-hidden" 
-                             style={{ width: '378px', height: '257px', fontFamily: 'Arial, sans-serif' }}>
-                            <div className="flex justify-between items-center border-b-2 border-double border-slate-800 pb-1 mb-1 h-[57px]">
-                                <img src={logoLeftUrl} className="h-[46px] w-auto object-contain pl-1" alt="Logo"/>
-                                <div className="text-center flex-1 leading-tight px-1">
-                                    <h4 className="font-bold text-[13px]">KARTU PESERTA</h4>
-                                    <p className="font-bold text-[11px]">{s.exam_type || 'ASSESMENT SUMATIF'}</p>
-                                    <p className="text-[10px] italic mt-0.5 truncate max-w-[200px] mx-auto">{s.school} - {s.kecamatan || '-'}</p>
+                     {displayedStudents.map((s, idx) => {
+                        const isBeregu = isBereguExamType(s.exam_type);
+                        const displayExamType = isBeregu ? 'LOMBA CERDAS CERMAT' : (s.exam_type || 'ASSESMENT SUMATIF');
+                        const eventOrganizer = appConfig['SCHOOL_NAME'] || 'EXAMORA DEVELOPMENT ASSESMENT';
+                        const displaySchoolHeader = isBeregu
+                            ? `${eventOrganizer}${s.kecamatan && s.kecamatan !== '-' ? ` - ${s.kecamatan}` : ''}`
+                            : `${s.school || '-'} - ${s.kecamatan || '-'}`;
+
+                        return (
+                            <div key={idx} className="bg-white border border-slate-400 p-1.5 rounded-sm shadow-sm flex flex-col gap-1 relative text-[10px] mx-auto overflow-hidden" 
+                                 style={{ width: '378px', height: '257px', fontFamily: 'Arial, sans-serif' }}>
+                                <div className="flex justify-between items-center border-b-2 border-double border-slate-800 pb-1 mb-1 h-[57px]">
+                                    <img src={logoLeftUrl} className="h-[46px] w-auto object-contain pl-1" alt="Logo"/>
+                                    <div className="text-center flex-1 leading-tight px-1">
+                                        <h4 className="font-bold text-[13px]">KARTU PESERTA</h4>
+                                        <p className="text-[9.5px] font-bold">{displayExamType}</p>
+                                        <p className="text-[8.5px] italic mt-0.5 leading-tight font-semibold text-slate-800 w-full text-center px-0.5 break-words">{displaySchoolHeader}</p>
+                                    </div>
+                                    <img src={logoRightUrl} className="h-[46px] w-auto object-contain pr-1" alt="Logo"/>
                                 </div>
-                                <img src={logoRightUrl} className="h-[46px] w-auto object-contain pr-1" alt="Logo"/>
-                            </div>
-                            
-                            <div className="flex gap-2 flex-1 pt-1 px-1">
-                                <div className="flex-1">
-                                    <table className="w-full text-[11px] leading-[1.25]">
-                                        <tbody>
-                                            {isBereguExamType(s.exam_type) ? (
-                                                (() => {
-                                                    const { reguTitle, members } = parseTeamAndMembers(s.fullname);
-                                                    const m1 = members[0] ? formatTwoWords(members[0]) : '..................';
-                                                    const m2 = members[1] ? formatTwoWords(members[1]) : '..................';
-                                                    const m3 = members[2] ? formatTwoWords(members[2]) : '..................';
-                                                    return (
-                                                        <>
-                                                            <tr><td className="w-16">Nama Regu</td><td>: <b>{reguTitle}</b></td></tr>
-                                                            <tr><td>Anggota</td><td>: <span style={{ fontSize: '7.2pt', color: '#333', lineHeight: '1.25' }}>
-                                                                1. {m1}<br/>
-                                                                2. {m2}<br/>
-                                                                3. {m3}
-                                                            </span></td></tr>
-                                                        </>
-                                                    );
-                                                })()
+                                
+                                <div className="flex gap-2 flex-1 pt-1 px-1">
+                                    <div className="flex-1">
+                                        <table className="w-full text-[11px] leading-[1.25]">
+                                            <tbody>
+                                                {isBeregu ? (
+                                                    (() => {
+                                                        const { reguTitle, members } = parseTeamAndMembers(s.fullname);
+                                                        const m1 = members[0] ? formatTwoWords(members[0]) : '..................';
+                                                        const m2 = members[1] ? formatTwoWords(members[1]) : '..................';
+                                                        const m3 = members[2] ? formatTwoWords(members[2]) : '..................';
+                                                        return (
+                                                            <>
+                                                                <tr><td className="w-16">Nama Regu</td><td>: <b>{reguTitle}</b></td></tr>
+                                                                <tr>
+                                                                    <td className="align-top">Anggota</td>
+                                                                    <td className="align-top">: 
+                                                                        <table className="inline-table border-collapse text-[9.5px] leading-tight align-top ml-0.5">
+                                                                            <tbody>
+                                                                                <tr><td className="w-3.5 font-bold text-slate-600 align-top">1.</td><td className="font-semibold text-slate-800 align-top">{m1}</td></tr>
+                                                                                <tr><td className="w-3.5 font-bold text-slate-600 align-top">2.</td><td className="font-semibold text-slate-800 align-top">{m2}</td></tr>
+                                                                                <tr><td className="w-3.5 font-bold text-slate-600 align-top">3.</td><td className="font-semibold text-slate-800 align-top">{m3}</td></tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr><td>Gugus</td><td>: {s.kelas || '-'}</td></tr>
+                                                            </>
+                                                        );
+                                                    })()
+                                                ) : (
+                                                    <>
+                                                        <tr><td className="w-16">Nama</td><td>: <b>{s.fullname}</b></td></tr>
+                                                        <tr><td>Kelas</td><td>: {s.kelas || '-'}</td></tr>
+                                                        <tr><td>Mata Pelajaran</td><td>: <b>{s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................'}</b></td></tr>
+                                                    </>
+                                                )}
+                                                <tr><td>Sesi</td><td>: {s.session || '-'}</td></tr>
+                                                <tr><td>Username</td><td>: <b>{s.username}</b></td></tr>
+                                                <tr><td>Password</td><td>: <b>{s.password || '-'}</b></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="w-[83px] flex flex-col items-center">
+                                        <div className="w-[76px] h-[98px] border border-slate-400 bg-slate-50 flex items-center justify-center text-[9px] text-slate-400 overflow-hidden">
+                                            {isBeregu ? (
+                                                <img src={s.photo_url || logoRightUrl} className="w-full h-full object-contain p-1" alt="Logo Regu"/>
+                                            ) : s.photo_url ? (
+                                                <img src={s.photo_url} className="w-full h-full object-cover"/>
                                             ) : (
-                                                <tr><td className="w-16">Nama</td><td>: <b>{s.fullname}</b></td></tr>
+                                                <span className="text-center leading-tight">FOTO<br/>3x4</span>
                                             )}
-                                            <tr><td>Kelas</td><td>: {s.kelas || '-'}</td></tr>
-                                            <tr><td>Mata Pelajaran</td><td>: <b>{s.active_exam && s.active_exam !== '-' ? s.active_exam : '..................'}</b></td></tr>
-                                            <tr><td>Sesi</td><td>: {s.session || '-'}</td></tr>
-                                            <tr><td>Username</td><td>: <b>{s.username}</b></td></tr>
-                                            <tr><td>Password</td><td>: <b>{s.password || '-'}</b></td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div className="w-[83px] flex flex-col items-center">
-                                    <div className="w-[76px] h-[98px] border border-slate-400 bg-slate-50 flex items-center justify-center text-[9px] text-slate-400 overflow-hidden">
-                                        {s.photo_url ? <img src={s.photo_url} className="w-full h-full object-cover"/> : <span className="text-center leading-tight">FOTO<br/>3x4</span>}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="absolute bottom-2 right-16 text-[10px] text-center w-[160px]">
-                                <p>Penanggung Jawab</p>
-                                <div className="h-8"></div>
-                                <p className="font-bold leading-tight text-[9px]">{currentUser.nama_lengkap}</p>
+                                <div className="absolute bottom-2 right-16 text-[10px] text-center w-[160px]">
+                                    <p>Penanggung Jawab</p>
+                                    <div className="h-8"></div>
+                                    <p className="font-bold leading-tight text-[9px]">{currentUser.nama_lengkap}</p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                  </div>
                  
                  {filteredStudents.length > 12 && (

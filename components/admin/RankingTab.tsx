@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Award, FileText, Loader2, BookOpen, Filter, Trophy, Users, Star } from 'lucide-react';
 import { api } from '../../src/services/api';
-import { exportToExcel, getPredicateBadge, TeamMemberBadge, syncTeamsWithParticipants } from '../../utils/adminHelpers';
+import { exportToExcel, getPredicateBadge, TeamMemberBadge, syncTeamsWithParticipants, getSchoolOnly } from '../../utils/adminHelpers';
 import { motion } from 'motion/react';
 
 const RankingTab = ({ students }: { students: any[] }) => {
@@ -436,7 +436,7 @@ const RankingTab = ({ students }: { students: any[] }) => {
                                                 </div>
                                             </td>
                                             <td className="p-3 md:p-4 text-slate-600 font-bold text-xs md:text-sm">
-                                                {d.school || '-'}
+                                                {getSchoolOnly(d.school) || '-'}
                                             </td>
                                             <td className="p-3 md:p-4 text-center font-bold text-slate-600 border-l border-slate-100 bg-indigo-50/5 text-xs md:text-sm">
                                                 {d.babak1Score}

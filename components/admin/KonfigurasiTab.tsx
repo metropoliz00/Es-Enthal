@@ -360,7 +360,7 @@ const KonfigurasiTab = ({ currentUser }: { currentUser: User }) => {
                                     <input 
                                         type="text" 
                                         className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none transition-all ${isGuru ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'}`} 
-                                        placeholder="Contoh: EXAMORA"
+                                        placeholder="Contoh: EXAMORA DEVELOPMENT ASSESMENT"
                                         value={formData.schoolName}
                                         onChange={e => setFormData({...formData, schoolName: e.target.value})}
                                         readOnly={isGuru}

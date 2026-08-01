@@ -2,6 +2,19 @@
 import React from 'react';
 import * as XLSX from 'xlsx';
 
+export const getSchoolOnly = (schoolStr?: string): string => {
+    if (!schoolStr) return '';
+    if (schoolStr.includes(' | ')) {
+        const parts = schoolStr.split(' | ');
+        return parts[1]?.trim() || parts[0]?.trim() || '';
+    }
+    if (schoolStr.includes('|')) {
+        const parts = schoolStr.split('|');
+        return parts[1]?.trim() || parts[0]?.trim() || '';
+    }
+    return schoolStr.trim();
+};
+
 // DAFTAR MAPEL BAKU & KODE ID
 export const DEFAULT_SUBJECTS_DB = [
     { id: "PAI", label: "Pendidikan Agama Islam" },
@@ -304,13 +317,13 @@ export const TeamMemberBadge: React.FC<{
 
             {/* MEMBER STUDENT NAMES BELOW WITH BACKGROUND DECORATIONS */}
             {parsed.members.length > 0 && (
-                <div className={`flex flex-wrap gap-1 ${align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                <div className={`flex flex-col gap-1 ${align === 'center' ? 'items-center' : 'items-start'}`}>
                     {parsed.members.map((member, idx) => (
                         <span 
                             key={idx} 
                             className={`inline-flex items-center gap-1 rounded-md font-bold border transition shadow-2xs ${memberBg} ${memberSizeClass}`}
                         >
-                            <span className="text-[9px] opacity-60 font-mono">{idx + 1}.</span>
+                            <span className="text-[9px] opacity-60 font-mono font-black">{idx + 1}.</span>
                             {member}
                         </span>
                     ))}

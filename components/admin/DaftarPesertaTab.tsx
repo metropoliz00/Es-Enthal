@@ -5,7 +5,7 @@ import { Users, FileText, Download, Upload, Loader2, Plus, Search, Edit, Trash2,
 import { api } from '../../src/services/api';
 import { User } from '../../types';
 import * as XLSX from 'xlsx';
-import { exportToExcel, getExamTypes, isBereguExamType, TeamMemberBadge } from '../../utils/adminHelpers';
+import { exportToExcel, getExamTypes, isBereguExamType, TeamMemberBadge, getSchoolOnly } from '../../utils/adminHelpers';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface DaftarPesertaTabProps {
@@ -121,9 +121,12 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                     display_id = `SIS-${et}-${String(counters.siswa[et]).padStart(2, '0')}`;
                 }
 
+                const cleanSchool = getSchoolOnly(u.school || u.kelas_id || '');
+                const cleanKelas = u.kelas || (u.school && u.school.includes(' | ') ? u.school.split(' | ')[0].trim() : '');
                 return {
                     ...u,
-                    school: u.school || u.kelas_id || '', 
+                    school: cleanSchool, 
+                    kelas: cleanKelas,
                     fullname: u.fullname || u.nama_lengkap || '', 
                     gender: u.gender || u.jenis_kelamin || 'L',
                     display_id
@@ -158,10 +161,10 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
     
     const handleEdit = (user: any) => { 
         let gugusVal = user.kelas || '';
-        let schoolVal = user.school || '';
-        if (schoolVal.includes(' | ')) {
-            const parts = schoolVal.split(' | ');
-            gugusVal = parts[0].trim();
+        let schoolVal = getSchoolOnly(user.school || '');
+        if (user.school && user.school.includes(' | ')) {
+            const parts = user.school.split(' | ');
+            if (!gugusVal) gugusVal = parts[0].trim();
             schoolVal = parts[1].trim();
         }
 
@@ -271,11 +274,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                     .join(' | ');
                 finalFormData.fullname = combined;
 
-                if (formData.kelas && formData.school) {
-                    finalFormData.school = `${formData.kelas.trim()} | ${formData.school.trim()}`;
-                } else if (formData.kelas) {
-                    finalFormData.school = formData.kelas.trim();
-                }
+                finalFormData.school = getSchoolOnly(formData.school);
+                finalFormData.kelas = formData.kelas ? formData.kelas.trim() : '';
             }
             const res = await api.saveUser(finalFormData); 
             if (!res.success) {
@@ -320,7 +320,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
         }
     };
 
-    const uniqueSchools = useMemo<string[]>(() => { const schools = new Set(users.map(u => u.school).filter(Boolean)); return Array.from(schools).sort() as string[]; }, [users]);
+    const uniqueSchools = useMemo<string[]>(() => { const schools = new Set(users.map(u => getSchoolOnly(u.school)).filter(Boolean)); return Array.from(schools).sort() as string[]; }, [users]);
     const uniqueClasses = useMemo<string[]>(() => { const classes = new Set(users.map(u => u.kelas).filter(Boolean)); return Array.from(classes).sort() as string[]; }, [users]);
     
     const filteredUsers = useMemo(() => { 
@@ -363,7 +363,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
             };
             // UNIFIED: Both modes export 'Kelas' to ensure data integrity
             row["Kelas"] = u.kelas; 
-            row["Sekolah"] = u.school;      // 9
+            row["Sekolah"] = getSchoolOnly(u.school);      // 9
             row["Kecamatan"] = u.kecamatan; // 10
             return row;
         }); 
@@ -556,7 +556,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange, mode = 'siswa', onSwitchU
                                  {/* Display numeric class for both Student and Guru */}
                                  {u.kelas || '-'}
                              </td>
-                             <td className="p-3 border-r border-slate-100 text-slate-600">{u.school || '-'}</td>
+                             <td className="p-3 border-r border-slate-100 text-slate-600 font-medium">{getSchoolOnly(u.school) || '-'}</td>
                              <td className="p-3 border-r border-slate-100 text-slate-500">{u.kecamatan || '-'}</td>
                              <td className="p-3 border-r border-slate-100">
                                  <div className="flex flex-wrap gap-1.5">
